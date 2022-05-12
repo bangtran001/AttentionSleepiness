@@ -25,9 +25,9 @@ response_task_map['response48'] = 12
 
 BATCH_SIZE = 128
 EPOCH = 20
-LEARNING_RATE = 1e-6
-SELECTED_TASK = 10
-N_RESPONSES = len([k for k, v in response_task_map.items() if v == SELECTED_TASK])
+LEARNING_RATE = 1e-3
+SELECTED_TASK = 10   # 0 for all task
+N_RESPONSES = len([k for k, v in response_task_map.items() if v == SELECTED_TASK]) if SELECTED_TASK > 0 else len(response_task_map.keys())
 
 device = torch.device('cpu')
 if torch.cuda.is_available():
@@ -86,6 +86,8 @@ for epoch in range(EPOCH):
 
         # Backward propagation
         loss.backward()     # <= compute the gradient of the loss/cost function
+        torch.nn.utils.clip_grad_norm_(my_model.parameters(), 5)
+
         optimizer.step()    # <= Update the gradients
 
         # Print some performance to monitor the training
@@ -121,6 +123,9 @@ for epoch in range(EPOCH):
 
 
 print('Training Finished!')
+
+
+
 
 '''
 Save & plot the history of training

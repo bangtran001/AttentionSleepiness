@@ -18,7 +18,11 @@ class SDM_Embedding(nn.Module):
     def __init__(self, selected_task=1):
         super(SDM_Embedding, self).__init__()
         self.selected_task = selected_task
-        self.input_channels = len([k for k, v in response_task_map.items() if v == selected_task])
+        if selected_task != 0:
+            self.input_channels = len([k for k, v in response_task_map.items() if v == selected_task])
+        else:
+            self.input_channels = len(response_task_map.keys())
+
 
         # L1 input shape = (?, N, 32, 32)
         # Conv -> (?, 32, 32, 32)
