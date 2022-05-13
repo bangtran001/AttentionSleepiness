@@ -9,7 +9,7 @@ python3 train.py --task=1
 ```
 Use *--task=0* to train the model with all tasks' data
 
-#### With Attention mechaninsm
+#### With Attention mechanism
 ```bash
 python3 train.py --attention=1
 ```
