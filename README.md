@@ -6,7 +6,7 @@ Applying attention mechanism in Voiceome dataset to determine sleepiness sates o
 ```bash
 python3 train.py --task=1
 ```
-Use *--task=0* to train the model with all tasks
+Use *--task=0* to train the model with all tasks' data
 
 ## Speech tasks
 | Task   | Response columns | Description |
