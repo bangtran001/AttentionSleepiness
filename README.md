@@ -31,4 +31,4 @@ python3 train.py --attention=1
 | Task 10| response10,..., response34 | Confrontational naming | 81.13% |
 | Task 11| response35,..., response44| Non-word pronuciation | 78.66% |
 | Task 12| response46, response48 | Memory recall | 80.87% |
-| **All task** | _all above_ | | **81.29%** |
+| **All tasks** | _all above_ | _all above_ | **_81.29%_** |
