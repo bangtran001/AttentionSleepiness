@@ -2,12 +2,12 @@
 Project goal:
 Applying attention mechanism in Voiceome dataset to determine sleepiness sates of speaker with HuBERT embedding.
 
-# Bash Command
+## Bash Command
 ```bash
 python3 train.py --task=1
 ```
 
-# Speech tasks
+## Speech tasks
 | Task   | Response columns | Description |
 | ------ | ---------------- | ------------ |
 | Task 1 | response1        | Microphone test |
