@@ -19,6 +19,6 @@ python3 train.py --task=1
 | Task 7 | response7        | Sustained phonation |
 | Task 8 | response8        | Diadochokinetic (puh-puh-puh)|
 | Task 9 | response9        | Diadochokinetic (puh-tuh-kuh) |
-| Task 10| response10,...,response34 | Confrontational naming |
+| Task 10| response10,$\dots$,response34 | Confrontational naming |
 | Task 11| response35,..,response44| Non-word pronuciation |
 | Task 12| response46, response48 | Memory recall |
