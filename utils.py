@@ -151,7 +151,11 @@ class SleepinessDataset(Dataset):
             else:
                 feat = np.load(os.path.join(hubert_feature_dir, np_file))         # return (T, 1024)
 
+            # replacing NaN values with 0
+            x = np.isnan(feat)
+            feat[x] = 0
             feat = torch.from_numpy(feat)
+            
             if self.FEATURE_TYPE == 'Embedding':
                 feat = torch.unsqueeze(feat, 0)  # (1024) -> (1, 1024)
             features.append(feat)
