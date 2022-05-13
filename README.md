@@ -17,7 +17,7 @@ python3 train.py --attention=1
 
 
 ## Speech tasks
-| Task   | Response columns | Description | ICASSP2022's Result |
+| Task   | Response columns | Speech task description | ICASSP2022's Result |
 | ------ | ---------------- | ------------ | ------------------ |
 | Task 1 | response1        | Microphone test | 69.70% |
 | Task 2 | response2        | Free speech | 77.24% |
