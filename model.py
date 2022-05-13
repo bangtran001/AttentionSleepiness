@@ -102,7 +102,7 @@ class LinearAttentionBlock(nn.Module):
 
     def forward(self, l, g):
         N, C, W, H = l.size()
-        c = self.op(l + g)  # batch_sizex1xWxH
+        c = self.op(l + g)  # batch_size x 1 x W x H
         if self.normalize_attn:
             a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
         else:
@@ -146,7 +146,6 @@ class GridAttentionBlock(nn.Module):
             output = F.adaptive_avg_pool2d(f, (1, 1)).view(N, C)
 
         return c.view(N, 1, W, H), output
-
 
 def weights_init_xavierNormal(module):
     for m in module.modules():

@@ -232,12 +232,13 @@ def train_AttnSDM(args):
                 total += labels_test.size(0)
                 correct += torch.eq(predict, labels_test).sum().double().item()
             print("\t > accuracy on test data: %.2f%%" % (100 * correct / total))
+            testing_accuracy.append(correct / total)
 
     # plotting the train
     import matplotlib.pyplot as plt
     plt.plot([i for i in range(len(training_loss))], training_loss, label='Training loss')
-    plt.plot([i for i in range(len(training_loss))], training_accuracy, label='Training Accurracy')
-    #plt.plot([i for i in range(1, EPOCH + 1)], testing_accuracy, label='Test Accuracy')
+    plt.plot([i for i in range(len(training_accuracy))], training_accuracy, label='Training Accurracy')
+    plt.plot([i for i in range(len(testing_accuracy))], testing_accuracy, label='Test Accuracy')
     plt.xlabel('epoch')
     plt.legend()
     plt.savefig('model/train-attention-hist.png')
