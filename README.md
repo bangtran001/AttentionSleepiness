@@ -3,10 +3,18 @@ Project goal:
 Applying attention mechanism in Voiceome dataset to determine sleepiness sates of speaker with HuBERT embedding.
 
 ## Bash Command
+#### No-Attention mechaninsm
 ```bash
 python3 train.py --task=1
 ```
 Use *--task=0* to train the model with all tasks' data
+
+#### With Attention mechaninsm
+```bash
+python3 train.py --attention=1
+```
+Use *--task=0* to train the model with all tasks' data
+
 
 ## Speech tasks
 | Task   | Response columns | Description | ICASSP2022's Result |
