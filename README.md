@@ -13,7 +13,7 @@ Use *--task=0* to train the model with all tasks' data
 ```bash
 python3 train.py --attention=1
 ```
-Use *--task=0* to train the model with all tasks' data
+
 
 
 ## Speech tasks
