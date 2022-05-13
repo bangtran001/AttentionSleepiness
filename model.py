@@ -115,7 +115,6 @@ class LinearAttentionBlock(nn.Module):
             g = F.adaptive_avg_pool2d(g, (1, 1)).view(N, C)
         return c.view(N, 1, W, H), g
 
-
 class GridAttentionBlock(nn.Module):
     def __init__(self, in_features_l, in_features_g, attn_features, up_factor, normalize_attn=False):
         super(GridAttentionBlock, self).__init__()
