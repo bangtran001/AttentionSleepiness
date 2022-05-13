@@ -1,7 +1,9 @@
 from torch import nn
 import torch
+import torch.nn.functional as F
+import numpy as np
 
-# this dictionary maps ressponseX --> task X
+""" this dictionary maps ressponseX --> task X """
 response_task_map = {}
 for i in range(1, 10):      # task1 - task10
     response_task_map['response' + str(i)] = i
@@ -12,11 +14,10 @@ for i in range(35, 45):     # task 11 (non-word)
 response_task_map['response46'] = 12    # task 12 (sentence repeat)
 response_task_map['response48'] = 12
 
-
-# Sleepiness Detection Model (SDM) using (1x1024) embeding
-class SDM_Embedding(nn.Module):
+""" None-Attention: Sleepiness Detection Model (SDM) using (1x1024) embeding """
+class SDM(nn.Module):
     def __init__(self, selected_task=1):
-        super(SDM_Embedding, self).__init__()
+        super(SDM, self).__init__()
         assert(selected_task in range(0,13)), 'Selected task needs be from 0 to 12'
 
         if selected_task != 0:
@@ -59,7 +60,6 @@ class SDM_Embedding(nn.Module):
             torch.nn.ReLU(),
             torch.nn.Dropout(p=0.2))
         self.fc2 = torch.nn.Linear(in_features=1024, out_features=2, bias=False)
-
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
@@ -69,232 +69,159 @@ class SDM_Embedding(nn.Module):
         out = self.fc2(out)
         return out
 
-#####################################
-# Implementation a transformer
-#####################################
-class SelfAttention(nn.Module):
-    def __init__(self, embed_size, heads):
-        super(SelfAttention, self).__init__()
-        self.embed_size = embed_size
-        self.heads = heads
-        self.head_dim = embed_size // heads
+""" Attention mechanism blocks """
+class ConvBlock(nn.Module):
+    def __init__(self, in_features, out_features, num_conv, pool=False):
+        super(ConvBlock, self).__init__()
+        features = [in_features] + [out_features for i in range(num_conv)]
+        layers = []
+        for i in range(len(features)-1):
+            layers.append(nn.Conv2d(in_channels=features[i], out_channels=features[i+1], kernel_size=3, padding=1, bias=True))
+            layers.append(nn.BatchNorm2d(num_features=features[i+1], affine=True, track_running_stats=True))
+            layers.append(nn.ReLU())
+            if pool:
+                layers.append(nn.MaxPool2d(kernel_size=2, stride=2, padding=0))
+        self.op = nn.Sequential(*layers)
 
-        assert (self.head_dim * heads == embed_size), "Embed size needs to be div by heads"
+    def forward(self, x):
+        return self.op(x)
 
-        self.values = nn.Linear(self.head_dim, self.head_dim, bias=False)
-        self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False)
-        self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False)
-        self.fc_out = nn.Linear(heads*self.head_dim, embed_size)
+class ProjectorBlock(nn.Module):
+    def __init__(self, in_features, out_features):
+        super(ProjectorBlock, self).__init__()
+        self.op = nn.Conv2d(in_channels=in_features, out_channels=out_features, kernel_size=1, padding=0, bias=False)
 
-    def forward(self, values, keys, query, mask):
-        N = query.shape[0]
-        value_len, key_len, query_len = values.shape[1], keys.shape[1] , query.shape[1]
+    def forward(self, inputs):
+        return self.op(inputs)
 
-        # Split embedding into self.heads pices
-        values = values.reshape(N, value_len, self.heads, self.head_dim)
-        keys = values.reshape(N, key_len, self.heads, self.head_dim)
-        queries = values.reshape(N, query_len, self.heads, self.head_dim)
+class LinearAttentionBlock(nn.Module):
+    def __init__(self, in_features, normalize_attn=True):
+        super(LinearAttentionBlock, self).__init__()
+        self.normalize_attn = normalize_attn
+        self.op = nn.Conv2d(in_channels=in_features, out_channels=1, kernel_size=1, padding=0, bias=False)
 
-        values = self.values(values)
-        keys = self.keys(keys)
-        queries = self.queries(queries)
+    def forward(self, l, g):
+        N, C, W, H = l.size()
+        c = self.op(l + g)  # batch_sizex1xWxH
+        if self.normalize_attn:
+            a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
+        else:
+            a = torch.sigmoid(c)
+        g = torch.mul(a.expand_as(l), l)
+        if self.normalize_attn:
+            g = g.view(N, C, -1).sum(dim=2)  # batch_sizexC
+        else:
+            g = F.adaptive_avg_pool2d(g, (1, 1)).view(N, C)
+        return c.view(N, 1, W, H), g
 
 
-        energy = torch.einsum("nqhd,nkhd->nhqk")
-        # queires shape (N, query_len, heads, head_dim)
-        # keys shape (N, key_len, heads, head_dim)
-        # energy shape (N, heads, query_len, key_len)
+class GridAttentionBlock(nn.Module):
+    def __init__(self, in_features_l, in_features_g, attn_features, up_factor, normalize_attn=False):
+        super(GridAttentionBlock, self).__init__()
+        self.up_factor = up_factor
+        self.normalize_attn = normalize_attn
+        self.W_l = nn.Conv2d(in_channels=in_features_l, out_channels=attn_features, kernel_size=1, padding=0,
+                             bias=False)
+        self.W_g = nn.Conv2d(in_channels=in_features_g, out_channels=attn_features, kernel_size=1, padding=0,
+                             bias=False)
+        self.phi = nn.Conv2d(in_channels=attn_features, out_channels=1, kernel_size=1, padding=0, bias=True)
 
-        if mask is not None:
-            energy = energy.masked_fill(mask == 0, float("-1e20") )
+    def forward(self, l, g):
+        N, C, W, H = l.size()
+        l_ = self.W_l(l)
+        g_ = self.W_g(g)
+        if self.up_factor > 1:
+            g_ = F.interpolate(g_, scale_factor=self.up_factor, mode='bilinear', align_corners=False)
+        c = self.phi(F.relu(l_ + g_))  # batch_sizex1xWxH
+        # compute attn map
+        if self.normalize_attn:
+            a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
+        else:
+            a = torch.sigmoid(c)
+        # re-weight the local feature
+        f = torch.mul(a.expand_as(l), l)  # batch_sizexCxWxH
+        if self.normalize_attn:
+            output = f.view(N, C, -1).sum(dim=2)  # weighted sum
+        else:
+            output = F.adaptive_avg_pool2d(f, (1, 1)).view(N, C)
 
-        attention = torch.softmax(energy / (self.embed_size ** (1/2)), dim=3)
+        return c.view(N, 1, W, H), output
 
-        out = torch.einsum("nhql,nlhd->nqhd",[attention, values]).reshape(
-            N, query_len, self.heads*self.head_dim
-        )
-        # queires shape (N, heads, query_len, head_dim)
-        # keys shape (N, value_len, heads, head_dim)
-        # (N, query_len, heads, head_dim) then flatten last two dimension
-        out = self.fc_out(out)
 
-        return out
+def weights_init_xavierNormal(module):
+    for m in module.modules():
+        if isinstance(m, nn.Conv2d):
+            nn.init.xavier_normal_(m.weight, gain=np.sqrt(2))
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
 
-class TransformerBlock(nn.Module):
-    def __init__(self, embed_size, heads, dropout, forward_expansion):
-        super(TransformerBlock, self).__init__()
-        self.attention = SelfAttention(embed_size, heads)
-        self.norm1 = nn.LayerNorm(embed_size)
-        self.norm2 = nn.LayerNorm(embed_size)
+        elif isinstance(m, nn.BatchNorm2d):
+            nn.init.normal_(m.weight, 0, 0.01)
+            nn.init.constant_(m.bias, val=0.)
 
-        self.feed_forward = nn.Sequential(
-            nn.Linear(embed_size, forward_expansion*embed_size),
-            nn.ReLU(),
-            nn.Linear(forward_expansion*embed_size, embed_size)
-        )
+        elif isinstance(m, nn.Linear):
+            nn.init.xavier_normal_(m.weight, gain=np.sqrt(2))
+            if m.bias is not None:
+                nn.init.constant_(m.bias, val=0.)
 
-        self.dropout = nn.Dropout(dropout)
+"""
+Attention Sleepiness Detection Model
+"""
+class AttnSDM(nn.Module):
+    def __init__(self, im_size, num_classes, attention=True, normalize_attn=True):
+        super(AttnSDM, self).__init__()
+        self.attention = attention
+        self.memory = {}
+        self.cv1 = ConvBlock(46, 64, 2)         # 46 responses ~ 46 input channels
+        self.cv2 = ConvBlock(64, 128, 2)
+        self.cv3 = ConvBlock(128, 256, 3)
+        self.cv4 = ConvBlock(256, 512, 3)
+        self.cv5 = ConvBlock(512, 512, 3)
+        self.cv6 = ConvBlock(512, 512, 2, pool=True)
+        self.dense = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=int(im_size / 32), padding=0, bias=True)
 
-    def forward(self, value, key, query, mask):
-        attention = self.attention(value, key, query, mask)
+        # Attention = True
+        self.projector = ProjectorBlock(256, 512)
+        self.attn1 = LinearAttentionBlock(in_features=512, normalize_attn=normalize_attn)
+        self.attn2 = LinearAttentionBlock(in_features=512, normalize_attn=normalize_attn)
+        self.attn3 = LinearAttentionBlock(in_features=512, normalize_attn=normalize_attn)
 
-        x = self.dropout(self.norm1(attention + query))
-        foward = self.feed_forward(x)
-        out = self.dropout(self.norm2(foward + x))
-        return out
+        # Final Classification Layer
+        self.classify = nn.Linear(in_features=512 * 3, out_features=num_classes, bias=True)
 
-class Encoder(nn.Module):
-    def __init__(self,
-                 src_vocab_size,
-                 embed_size, num_layers,
-                 heads,
-                 device,
-                 forward_expansion,
-                 dropout,
-                 max_length):
-        super(Encoder, self).__init__()
-        self.embed_size = embed_size
-        self.device = device
-        self.word_embedding = nn.Embedding(src_vocab_size, embed_size)
-        self.position_embedding = nn.Embedding(max_length, embed_size)
+        # weight = U [-(1/sqrt(n)), 1/sqrt(n)]
+        weights_init_xavierNormal(self)
 
-        self.layers = nn.ModuleList(
-            [
-                TransformerBlock(embed_size,
-                                 heads,
-                                 dropout=dropout,
-                                 forward_expansion=forward_expansion) for _ in range(num_layers) ]
-        )
-        self.dropout = nn.Dropout(dropout)
+    def forward(self, x):
+        x = self.cv1(x)
+        x = self.cv2(x)
+        # self.memory[]
+        l1 = self.cv3(x)
+        x = F.max_pool2d(l1, kernel_size=2, stride=2, padding=0)
 
-    def forward(self, x, mask):
-        N, seq_length = x.shape
-        positions = torch.arange(0, seq_length).expand(N, seq_length).to(self.device)
-        out = self.dropout(self, self.word_embedding(x) + self.position_embedding(positions))
+        l2 = self.cv4(x)
+        x = F.max_pool2d(l2, kernel_size=2, stride=2, padding=0)
 
-        for layer in self.layers:
-            out = layer(out, out, out, mask)
+        l3 = self.cv5(x)
+        x = F.max_pool2d(l3, kernel_size=2, stride=2, padding=0)
 
-        return out
+        x = self.cv6(x)
+        g = self.dense(x)
 
-class DecoderBlock(nn.Module):
-    def __init__(self, embed_size, heads, forward_expansion, dropout, device):
-        super(DecoderBlock, self).__init__()
-        self.attention = SelfAttention(embed_size, heads)
-        self.norm = nn.LayerNorm(embed_size)
-        self.tranformer_block = TransformerBlock(
-            embed_size, heads, dropout, forward_expansion
-        )
-        self.dropout = nn.Dropout(dropout)
+        # Attention part
+        c1, g1 = self.attn1(self.projector(l1), g)
+        c2, g2 = self.attn2(l2, g)
+        c3, g3 = self.attn3(l3, g)
+        g = torch.cat((g1, g2, g3), dim=1)  # batch_size x C
+        np = c1.detach().cpu().numpy()
 
-    def forward(self, x, values, key, src_mask, trg_mask):
-        attention = self.attention(x, x, x, trg_mask)
-        query = self.dropout(self.norm(attention + x))
-        out = self.tranformer_block(values, key, query, src_mask)
-        return out
+        # classification layer
+        x = self.classify(g)  # batch_size x num_classes
+        return [x, c1, c2, c3]
 
-class Decoder(nn.Module):
-    def __init__(self,
-                 trg_vocab_size,
-                 embed_size,
-                 num_layers,
-                 heads,
-                 forward_expansion,
-                 dropout,
-                 device,
-                 max_length):
-        super(Decoder, self).__init__()
-        self.device = device
-        self.word_embedding = nn.Embedding(trg_vocab_size, embed_size)
-        self.position_embedding = nn.Embedding(max_length, embed_size)
-        self.layers = nn.ModuleList(
-            [DecoderBlock(embed_size, heads, forward_expansion, dropout, device)
-             for _ in range(num_layers)]
-        )
-        self.fc_out = nn.Linear(embed_size, trg_vocab_size)
-        self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x, enc_out, src_mask, trg_mask):
-        N, seq_length = x.shape
-        positions = torch.arange(0, seq_length).expand(N, seq_length).to(self.device)
-        x = self.dropout((self.word_embedding(x) + self.position_embedding(positions)))
-        for layer in self.layers:
-            x = layer(x, enc_out, enc_out, src_mask, trg_mask)
 
-        out = self.fc_out(x)
-        return out
 
-class Transformer(nn.Module):
-    def __init__(self,
-                 src_vocab_size,
-                 trg_vocab_size,
-                 src_pad_idx,
-                 trg_pad_idx,
-                 embed_size = 256,
-                 num_layers=6,
-                 forward_expansion=4,
-                 heads=8,
-                 dropout=0,
-                 device='cuda',
-                 max_length=100):
-        super(Transformer, self).__init__()
-        self.encoder = Encoder(
-            src_vocab_size,
-            embed_size,
-            num_layers,
-            heads,
-            device,
-            forward_expansion,
-            dropout,
-            max_length
-        )
 
-        self.decoder = Decoder(
-            trg_vocab_size,
-            embed_size,
-            num_layers,
-            heads,
-            forward_expansion,
-            dropout,
-            device,
-            max_length
-        )
 
-        self.src_pad_idx = src_pad_idx
-        self.trg_pad_idx = trg_pad_idx
-        self.device = device
-
-    def make_src_mask(self, src):
-        src_mask = (src != self.src_pad_idx).unsqueeze(1).unsqueeze(2)
-        # (N, 1, 1, src_length)
-        return src_mask.to(self.device)
-
-    def make_trg_mask(self, trg):
-        N, trg_len = trg.shape
-        trg_mask = torch.tril(torch.ones((trg_len, trg_len))).expand(
-            N, 1, trg_len, trg_len
-        )
-        return trg_mask.to(self.device)
-
-    def forward(self, src, trg):
-        src_mask = self.make_src_mask(src)
-        trg_mask = self.make_src_mask(trg)
-
-        enc_src = self.encoder(src, src_mask)
-        out = self.decoder(trg, enc_src, src_mask, trg_mask)
-        return out
-
-def run_Transformer_example():
-    x = torch.tensor([[1, 5, 6, 4, 3, 9, 5, 2, 0],
-                      [1, 8, 7, 3, 4, 5, 6, 7, 2]]).to('cuda')
-    trg = torch.tensor([[1, 7, 4, 3, 5, 9, 2,0],
-                        [1, 5, 6, 2, 4, 7, 6, 2]]).to('cuda')
-
-    src_pad_idx = 0
-    trg_pad_idx = 0
-    src_vocab_size = 10
-    trg_vocab_size = 10
-    model = Transformer(src_vocab_size, trg_vocab_size, src_pad_idx, trg_pad_idx).to('cuda')
-
-    out = model(x, trg[:, :-1])
-    print(out.shape)
+## https://colab.research.google.com/github/nivedwho/Colab/blob/main/SelfAttnCNN.ipynb#scrollTo=BYnr1NuQFFJk

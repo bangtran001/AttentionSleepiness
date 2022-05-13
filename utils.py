@@ -1,41 +1,3 @@
-# import numpy as np
-# from numpy import random
-# from scipy.special import softmax
-#
-# # encoder representations of four different words
-# word_1 = np.array([1, 0, 0])
-# word_2 = np.array([0, 1, 0])
-# word_3 = np.array([1, 1, 0])
-# word_4 = np.array([0, 0, 1])
-#
-# # stacking the word embeddings into a single array
-# words = np.array([word_1, word_2, word_3, word_4])
-#
-# # generating the weight matrices
-# random.seed(42)
-# W_Q = random.randint(3, size=(3, 3))
-# W_K = random.randint(3, size=(3, 3))
-# W_V = random.randint(3, size=(3, 3))
-#
-# # generating the queries, keys and values
-# Q = words @ W_Q
-# K = words @ W_K
-# V = words @ W_V
-#
-# # scoring the query vectors against all key vectors
-# scores = Q @ K.transpose()
-#
-# # computing the weights by a softmax operation
-# weights = softmax(scores / K.shape[1] ** 0.5, axis=1)
-#
-# # computing the attention by a weighted sum of the value vectors
-# attention = weights @ V
-#
-# print(attention)
-#
-# exit(0)
-
-
 # ----------------
 # GENERAL VARIABLES
 # ----------------
@@ -47,7 +9,7 @@ corpus_file = "csv/corpus.csv"
 
 # this dictionary maps ressponseX --> task X
 response_task_map = {}
-for i in range(1, 10):      # task1 - task10
+for i in range(1, 10):      # task1 - task9
     response_task_map['response' + str(i)] = i
 for i in range(10, 35):     #  task 10 (Confrontational naming)
     response_task_map['response' + str(i)] = 10
@@ -69,7 +31,6 @@ import pandas as pd
 from tqdm import tqdm
 import torch
 from torch.nn.utils.rnn import pad_sequence
-
 
 '''
 This function read corpus.csv file and generate csv file which containing columns:
@@ -155,7 +116,7 @@ class SleepinessDataset(Dataset):
             x = np.isnan(feat)
             feat[x] = 0
             feat = torch.from_numpy(feat)
-            
+
             if self.FEATURE_TYPE == 'Embedding':
                 feat = torch.unsqueeze(feat, 0)  # (1024) -> (1, 1024)
             features.append(feat)

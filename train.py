@@ -1,14 +1,17 @@
 import argparse
 from torchinfo import summary
-from torch.autograd import Variable
+import torch.nn as nn
+import torch.optim as optim
+import torch.optim.lr_scheduler as lr_scheduler
+
 from torch.nn import functional as F
 from tqdm import tqdm
 import json
 import torch
 import utils
 from torch.utils.data import DataLoader, random_split
-from model import SDM_Embedding
-
+from model import SDM, AttnSDM
+import numpy as np
 
 '''
 GLOBAL variables
@@ -31,8 +34,9 @@ LEARNING_RATE = 1e-4
 device = torch.device('cpu')
 if torch.cuda.is_available():
     device = torch.device('cuda')
-''''''''''''''''''''''''''''''''''''''''''''''''''''''
-def train_model(args):
+
+""" Train none-attention-model"""
+def train_SDM(args):
     assert (args.task in range(0, 12)), "The SELECTED_TASK must be between 0 and 12"
 
     SELECTED_TASK = args.task
@@ -52,7 +56,7 @@ def train_model(args):
     print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
 
     # 3-Construct a model and assign it to selected DEVICE
-    my_model = SDM_Embedding(SELECTED_TASK).to(device)
+    my_model = SDM(SELECTED_TASK).to(device)
     summary(my_model, (BATCH_SIZE, N_RESPONSES, 32, 32))
 
     loss_func = torch.nn.CrossEntropyLoss()    # Softmax is internally computed.
@@ -147,16 +151,111 @@ def train_model(args):
     plt.legend()
     plt.savefig('model/train-hist.png')
 
+""" Train attention-model """
+def train_AttnSDM(args):
+    net = AttnSDM(im_size=32, num_classes=2)
+    #summary(net, (BATCH_SIZE, 16, 32, 32))
+    device = torch.device("cuda")
+    device_ids = [0, ]
 
+    criterion = nn.CrossEntropyLoss()
+    epochs = EPOCH
+    model = nn.DataParallel(net, device_ids=device_ids).to(device)
+    criterion.to(device)
+    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
+    lr_lambda = lambda epoch: np.power(0.5, int(epoch / 25))
+    scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+
+    ds = utils.SleepinessDataset(device=device, selected_task=0)
+    n_samples = len(ds)
+    n_test_samples = int(n_samples*.25)
+    n_train_samples = n_samples - n_test_samples
+    train_ds, test_ds = random_split(ds, [n_train_samples, n_test_samples])
+
+    train_dl = DataLoader(dataset=train_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
+    validation_dl = DataLoader(dataset=test_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
+    print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
+
+
+    training_accuracy = list()
+    training_loss = list()
+    testing_accuracy = list()
+    testing_loss = list()
+
+    step = 0
+    running_avg_accuracy = 0
+    aug = 0
+    for epoch in range(epochs):
+        print("\nepoch %d learning rate %f" % (epoch+1, optimizer.param_groups[0]['lr']))
+        for i, data in enumerate(train_dl, start=0):
+            model.train()
+            model.zero_grad()
+            optimizer.zero_grad()
+            inputs, labels = data
+            inputs = inputs.view(-1, 46, 32, 32)  # reshape from N x 1024 --> N x 32 x 32
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            # forward
+            pred, __, __, __ = model(inputs)
+
+            # backward
+            loss = criterion(pred, labels)
+            loss.backward()
+            optimizer.step()
+
+            if i % 100 == 0:
+                model.eval()
+                pred, __, __, __ = model(inputs)
+                predict = torch.argmax(pred, 1)
+                total = labels.size(0)
+                correct = torch.eq(predict, labels).sum().double().item()
+                accuracy = correct / total
+                running_avg_accuracy = 0.9 * running_avg_accuracy + 0.1 * accuracy
+                print("\t >loss %.4f accuracy %.2f%% running avg accuracy %.2f%%"
+                      % (loss.item(), (100 * accuracy), (100 * running_avg_accuracy)))
+                #logging
+                training_accuracy.append(accuracy)
+                training_loss.append(loss.item())
+            step += 1
+
+        model.eval()
+        total = 0
+        correct = 0
+        with torch.no_grad():
+            # log scalars
+            for i, data in enumerate(validation_dl, 0):
+                inputs_test, labels_test = data
+                inputs_test = inputs_test.view(-1, 46, 32, 32)
+                inputs_test, labels_test = inputs_test.to(device), labels_test.to(device)
+                pred_test, _, _, _ = model(inputs_test)
+                predict = torch.argmax(pred_test, 1)
+                total += labels_test.size(0)
+                correct += torch.eq(predict, labels_test).sum().double().item()
+            print("\t > accuracy on test data: %.2f%%" % (100 * correct / total))
+
+    # plotting the train
+    import matplotlib.pyplot as plt
+    plt.plot([i for i in range(len(training_loss))], training_loss, label='Training loss')
+    plt.plot([i for i in range(len(training_loss))], training_accuracy, label='Training Accurracy')
+    #plt.plot([i for i in range(1, EPOCH + 1)], testing_accuracy, label='Test Accuracy')
+    plt.xlabel('epoch')
+    plt.legend()
+    plt.savefig('model/train-attention-hist.png')
+
+
+""" Main function """
 if __name__=='__main__':
     custom_parser = argparse.ArgumentParser(description='Training Sleepiness Classification Model')
     custom_parser.add_argument('--task', type=int, default=1)
+    custom_parser.add_argument('--attention', type=int, default=0)
     custom_args, _ = custom_parser.parse_known_args()
 
-    train_model(custom_args)
+    if custom_args.attention > 0:
+        train_AttnSDM(custom_args)
+    else:
+        train_SDM(custom_args)
 
 
-    # torch.nn.MultiheadAttention(embed_dim=1, num_heads=1, bias=True)
 
 
 
