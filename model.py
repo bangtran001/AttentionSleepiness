@@ -60,6 +60,7 @@ class SDM(nn.Module):
             torch.nn.ReLU(),
             torch.nn.Dropout(p=0.2))
         self.fc2 = torch.nn.Linear(in_features=1024, out_features=2, bias=False)
+
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
@@ -222,5 +223,9 @@ class AttnSDM(nn.Module):
 
 
 
-
+## Implementation: “Learn To Pay Attention” published in ICLR 2018 conference
+## https://nivedwho.github.io/blog/posts/attncnn/
 ## https://colab.research.google.com/github/nivedwho/Colab/blob/main/SelfAttnCNN.ipynb#scrollTo=BYnr1NuQFFJk
+
+## https://github.com/arundo/tsaug
+## https://github.com/jim-schwoebel/allie/tree/master/visualize

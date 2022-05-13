@@ -28,7 +28,7 @@ response_task_map['response46'] = 12    # task 12 (sentence repeat)
 response_task_map['response48'] = 12
 
 BATCH_SIZE = 64
-EPOCH = 20
+EPOCH = 100
 LEARNING_RATE = 1e-4
 
 device = torch.device('cpu')
@@ -41,7 +41,7 @@ def train_SDM(args):
 
     SELECTED_TASK = args.task
     if SELECTED_TASK == 0:
-        N_RESPONSES = response_task_map.keys()
+        N_RESPONSES = len(list(response_task_map.keys()))
     else:
         N_RESPONSES = len([k for k, v in response_task_map.items() if v == SELECTED_TASK])
 
