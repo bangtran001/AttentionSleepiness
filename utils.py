@@ -32,6 +32,7 @@ from tqdm import tqdm
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
+
 '''
 This function read corpus.csv file and generate csv file which containing columns:
     1. session_id: The id of session that the audio belongs to
@@ -80,7 +81,7 @@ def read_corpus(selected_task = None, csv_output='dataset.csv'):
 '''
 Sleepiness Dataset
 '''
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, WeightedRandomSampler
 class SleepinessDataset(Dataset):
     def __init__(self, device, selected_task = 1):
         if selected_task not in range(0, 13):
@@ -90,6 +91,17 @@ class SleepinessDataset(Dataset):
         self.device = device
         self.selected_task = selected_task   # All=0 | 1 | 2 | ...| 12
         self.dataset = pd.read_csv('csv/task'+str(selected_task)+'.csv')
+
+        # update labels to 0 & 1 based on sss value --> for binary classification
+        #   - 0 : if sss in [1..3]
+        #   - 1 : if sss in [4..7]
+        self.dataset.loc[self.dataset['sss']>=4, 'sss'] = 7
+        self.dataset.loc[self.dataset['sss']<=3, 'sss'] = 0
+        self.dataset.loc[self.dataset['sss']==7, 'sss'] = 1
+
+        # labels_unique, counts = np.unique(self.dataset['sss'], return_counts=True)
+        # print(labels_unique, counts)
+
 
     def __len__(self):
         return len(self.dataset)
@@ -112,7 +124,7 @@ class SleepinessDataset(Dataset):
             else:
                 feat = np.load(os.path.join(hubert_feature_dir, np_file))         # return (T, 1024)
 
-            # replacing NaN values with 0
+            # replace NaN values by 0
             x = np.isnan(feat)
             feat[x] = 0
             feat = torch.from_numpy(feat)
@@ -128,14 +140,29 @@ class SleepinessDataset(Dataset):
             pt_features = torch.permute(pt_features, (1, 0, 2))
 
         sss_label = self.dataset.loc[idx, 'sss']    # sleepiness is a number --> convert to one-hot-vector
+
         #onehot_label = torch.zeros(1, 7)
         #onehot_label[0, int(sss_label - 1)] = 1
-        lb = 0 if int(sss_label) <= 3 else 1         # 1-3 is awake; 4-7 is sleepy
 
-        return pt_features, lb
+        return pt_features, sss_label
+
+    ''' This function return weight of each class of the dataset'''
+    def get_class_weights(self, indecies=None):
+        if indecies != None:
+            selected_rows = self.dataset.iloc[indecies]
+        else:
+            selected_rows = self.dataset
+
+        all_labels_ids = torch.tensor([label for label in selected_rows['sss']], dtype=torch.int)
+        #all_labels_ids = torch.tensor([label for label in self.dataset['sss']], dtype=torch.int)
+        labels_unique, counts = np.unique(selected_rows['sss'], return_counts=True)
+
+        class_weights = [counts[c]/np.sum(counts) for c in range(len(counts))]
+        # print(class_weights)
+        return torch.FloatTensor(class_weights), counts
 
 
-    # The feature has shape of [T x 1024]. This funciton will help to determine the largest value of T
+        # The feature has shape of [T x 1024]. This funciton will help to determine the largest value of T
     # The current longest T = 3315
     # warning: This takes 22mins to finish
     def get_longest_feature_length(self):
@@ -147,13 +174,8 @@ class SleepinessDataset(Dataset):
                 print(f"maxlen = {max_T}")
         return max_T
 
+#ds = SleepinessDataset(selected_task=0, device=torch.device('cuda'))
 
-# ds = SleepinessDataset('cuda:0', selected_task=10)
-# X1, y1 = ds.__getitem__(90)
-# X2, y2 = ds.__getitem__(33)
-#
-# print(X1.size(), y1)
-# print(X2.size(), y2)
 
 '''
 There are error numpy files when it generated
