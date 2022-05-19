@@ -31,3 +31,6 @@ python3 train.py --attention=1 --learning_rate=0.001 --batch_size=32 --epoch=20
 | Task 11| response35,..., response44| Non-word pronuciation | 78.66% |
 | Task 12| response46, response48 | Memory recall | 80.87% |
 | **All tasks** | _all above_ | _all above_ | **_81.29%_** |
+
+## Training result
+![epoch=100, lr=1e-3, batch_size=64](image/train-attention-hist-new.png)

@@ -149,7 +149,7 @@ class Adaptive_ConvBlock(nn.Module):
             layers.append(nn.BatchNorm2d(num_features=features[i+1], affine=True, track_running_stats=True))
             layers.append(nn.ReLU())
             if pool:
-                layers.append(nn.MaxPool2d(kernel_size=2, stride=2, padding=0))
+                layers.append(nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2), padding=0))
 
         self.op = nn.Sequential(*layers)
 
@@ -231,18 +231,13 @@ class Adaptive_AttnSDM(nn.Module):
             self.input_channels = len(response_task_map.keys())
 
         self.memory = {}
-        self.cv1 = ConvBlock(in_features=1, out_features=64, num_conv=2, pool=False)         # 46 responses ~ 46 input channels
-        self.cv2 = ConvBlock(64, 128, 2)
-        self.cv3 = ConvBlock(128, 256, 3)
-        self.cv4 = ConvBlock(256, 512, 3)
-        self.cv5 = ConvBlock(512, 512, 3)
-        self.cv6 = ConvBlock(512, 512, 2)
-        #self.dense = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=int(im_size / 32), padding=0, bias=True)
-        self.dense = nn.Sequential(
-                            nn.MaxPool2d(kernel_size=(3, 2), stride=(3, 2), padding=(1,0)),  # (?, 512, 46, 1024) --> (?, 512, 16, 512)
-                            nn.Conv2d(in_channels=512, out_channels=1024, padding=1, kernel_size=3), # (?, 512, 16, 512) --> (?, 1024, 16, 512)
-                            nn.MaxPool2d(kernel_size=4, stride=4, padding=0),  # (?, 1024, 16, 512) --> (?, 1024, 4, 128)
-                     )
+        self.cv1 = Adaptive_ConvBlock(in_features=1, out_features=64, num_conv=2, pool=True)         # 46 responses ~ 46 input channels
+        self.cv2 = Adaptive_ConvBlock(in_features=64, out_features=128, num_conv=2, pool=True)
+        self.cv3 = Adaptive_ConvBlock(in_features=128, out_features=256, num_conv=1, pool=True)
+        self.cv4 = Adaptive_ConvBlock(256, 512, 1)
+        self.cv5 = Adaptive_ConvBlock(512, 512, 1)
+        self.cv6 = Adaptive_ConvBlock(512, 512, 1)
+        self.dense = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1, bias=True)
 
         # Attention
         self.projector = Adaptive_ProjectorBlock(256, 512)
@@ -251,27 +246,37 @@ class Adaptive_AttnSDM(nn.Module):
         self.attn3 = Adaptive_LinearAttentionBlock(in_features=512, normalize_attn=normalize_attn)
 
         # Final Classification Layer
-        self.classify = nn.Linear(in_features=512 * 3, out_features=num_classes, bias=True)
-
+        self.classify = nn.Sequential(
+                                nn.Linear(in_features=512 * 3, out_features=1024, bias=True),
+                                nn.ReLU(),
+                                nn.Linear(in_features=1024, out_features=256),
+                                nn.ReLU(),
+                                nn.Linear(in_features=256, out_features=64),
+                                nn.ReLU(),
+                                nn.Linear(in_features=64, out_features=16),
+                                nn.ReLU(),
+                                nn.Linear(in_features=16, out_features=4),
+                                nn.ReLU(),
+                                nn.Linear(in_features=4, out_features=num_classes)
+                            )
         # weight = U [-(1/sqrt(n)), 1/sqrt(n)]
         weights_init_xavierNormal(self)
 
     def forward(self, x):
-        x = self.cv1(x)         # (?, 1, 46, 1024) --> (?, 64, 46, 1024)
-        x = self.cv2(x)         # (?, 64, 46, 1024) --> (?, 128, 46, 1024)
-        x = self.cv3(x)         # (?, 128, 46, 1024) --> (?, 256, 46, 1024)
+        x = self.cv1(x)         # (?, 1, 46, 1024) --> (?, 64, 46, 512)
+        x = self.cv2(x)         # (?, 64, 46, 512) --> (?, 128, 46, 256)
+        x = self.cv3(x)         # (?, 128, 46, 256) --> (?, 256, 46, 128)
         l1 = x
-        x = self.cv4(x)         # (?, 256, 46, 1024) --> (?, 512, 46, 1024)
+        x = self.cv4(x)         # (?, 256, 46, 128) --> (?, 512, 46, 128)
         l2 = x
-        x = self.cv5(x)         # (?, 512, 46, 1024) --> (?, 512, 46, 1024)
+        x = self.cv5(x)         # (?, 512, 46, 128) --> (?, 512, 46, 128)
         l3 = x
-        x = self.cv6(x)         # (?, 512, 46, 1024) --> (?, 512, 46, 1024)
-        #g = self.dense(x)       # (?, 1024, 4, 128)
-        g = x
+        x = self.cv6(x)         # (?, 512, 46, 128) --> (?, 512, 46, 128)
+        g = self.dense(x)       # (?, 512, 46, 32)
 
         # Attention part
         c1, g1 = self.attn1(self.projector(l1), g)
-        c2, g2 = self.attn2(l2, g)      # c1, c2, c3: (1, 46, 1024)
+        c2, g2 = self.attn2(l2, g)      # c1, c2, c3: (1, 46, 32)
         c3, g3 = self.attn3(l3, g)      # g1, g2, g3: (64, 512)
         g = torch.cat((g1, g2, g3), dim=1)  # batch_size x 512*3
 

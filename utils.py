@@ -99,6 +99,8 @@ class SleepinessDataset(Dataset):
         self.dataset.loc[self.dataset['sss']<=3, 'sss'] = 0
         self.dataset.loc[self.dataset['sss']==7, 'sss'] = 1
 
+        #self.dataset = self.dataset.iloc[:200, :]
+
         # labels_unique, counts = np.unique(self.dataset['sss'], return_counts=True)
         # print(labels_unique, counts)
 

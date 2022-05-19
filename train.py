@@ -366,7 +366,6 @@ def train_AdaptiveAttnSDM(args):
 
     my_model = Adaptive_AttnSDM(num_classes=2)
     summary(my_model, (args.batch_size, 1, 46, 1024))
-
     device_ids = [0, ]
     loss_func = nn.CrossEntropyLoss()
     model = nn.DataParallel(my_model, device_ids=device_ids).to(device)
@@ -395,7 +394,7 @@ def train_AdaptiveAttnSDM(args):
         print(f"\nEpoch {epoch+1}/{args.epoch} @ lr={optimizer.param_groups[0]['lr']} ------")
         avg_loss = 0.0
         avg_acc = 0.0
-        for i, (inputs, labels) in tqdm(enumerate(train_dl, start=0), total=len(train_dl)):
+        for i, (inputs, labels) in tqdm(enumerate(train_dl, start=0), total=len(train_dl), desc='Trainig step'):
             model.train()
             model.zero_grad()
             optimizer.zero_grad()
@@ -419,37 +418,47 @@ def train_AdaptiveAttnSDM(args):
             total = labels.size(0)
             correct = torch.eq(predict, labels).sum().double().item()
             avg_acc += (correct/total)/len(train_dl)
+        print(f"\tavg. train loss={avg_loss:.4f} \ttrain accuracy={100*avg_acc:.2f}%")
+        #logging
+        training_accuracy.append(avg_acc)
+        training_loss.append(avg_loss)
 
         model.eval()
-        total = 0
-        correct = 0
         with torch.no_grad():
-            # log scalars
+            test_total = 0
+            test_correct = 0
+            avg_loss = 0.0
             for i, (inputs_test, labels_test) in enumerate(validation_dl, 0):
                 inputs_test = torch.unsqueeze(inputs_test, dim=1)  # reshape from (?, 46, 1024) --> (?, 1, 46, 1024)
                 inputs_test, labels_test = inputs_test.to(device), labels_test.to(device)
                 pred_test, _, _, _ = model(inputs_test)
-
+                avg_loss += loss_func(pred_test, labels_test).item()/len(validation_dl)
                 predict = torch.argmax(pred_test - class_weights.to(device), 1)
-                total += labels_test.size(0)
-                correct += torch.eq(predict, labels_test).sum().double().item()
-            # print(f"  > accuracy on test data: {(100 * correct / total):.2f}%")
-            testing_accuracy.append(correct/total)
-
+                test_total += labels_test.size(0)
+                test_correct += torch.eq(predict, labels_test).sum().double().item()
+        print(f"\tavg. test loss={avg_loss:.4f} \ttest accuracy={100 * (test_correct/test_total):.2f}%")
         #logging
-        training_accuracy.append(avg_acc)
-        training_loss.append(avg_loss)
-        print(f"------->avg.loss={avg_loss:.4f} train_acc={100*avg_acc:.2f}% test_acc={100 * testing_accuracy[-1]:.2f}%")
+        testing_loss.append(avg_loss)
+        testing_accuracy.append(test_correct / test_total)
 
+    # save training history
+    print("Training is Done!")
+    jsonfile = open('image/train-attention-hist-new.json', 'w')
+    json.dump({'train_loss' : training_loss,
+               'train_acc' : training_accuracy,
+               'test_loss': testing_loss,
+               'test_acc': testing_accuracy}, jsonfile)
+    jsonfile.close()
 
     # plotting the train
     import matplotlib.pyplot as plt
-    plt.plot([i for i in range(len(training_loss))], training_loss, label='Training loss')
-    plt.plot([i for i in range(len(training_accuracy))], training_accuracy, label='Training Accurracy')
-    plt.plot([i for i in range(len(testing_accuracy))], testing_accuracy, label='Test Accuracy')
+    plt.plot(training_loss, label='Training loss')
+    plt.plot(testing_loss, label='Testing loss')
+    plt.plot(training_accuracy, label='Training Accurracy')
+    plt.plot(testing_accuracy, label='Test Accuracy')
     plt.xlabel('epoch')
     plt.legend()
-    plt.savefig('model/train-attention-hist-new.png')
+    plt.savefig('image/train-attention-hist-new.png')
 
 
 
