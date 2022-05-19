@@ -33,4 +33,5 @@ python3 train.py --attention=1 --learning_rate=0.001 --batch_size=32 --epoch=20
 | **All tasks** | _all above_ | _all above_ | **_81.29%_** |
 
 ## Training result
-![epoch=100, lr=1e-3, batch_size=64](image/train-attention-hist-new.png)
+> Epoch = 100, lr=1e^3, batch_size=64
+![epoch=100, lr=1e-3, batch_size=64](image/train-attention-hist_1e-3.png)
