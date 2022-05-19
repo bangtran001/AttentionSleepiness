@@ -15,6 +15,10 @@ python3 train.py --attention=1 --learning_rate=0.001 --batch_size=32 --epoch=20
 ```
 
 
+### CNN-Attention Model Architecture
+![](image/model-design.png)
+
+
 ## Speech tasks
 | Task   | Response columns | Speech task description | ICASSP2022's Result |
 | ------ | ---------------- | ------------ | ------------------ |
