@@ -10,7 +10,7 @@ import json
 import torch
 import utils
 from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
-from model import SDM, AttnSDM, ICASSP_Model
+from model import SDM, AttnSDM, Adaptive_AttnSDM, ICASSP_Model
 import numpy as np
 
 '''
@@ -27,9 +27,9 @@ for i in range(35, 45):     # task 11 (non-word)
 response_task_map['response46'] = 12    # task 12 (sentence repeat)
 response_task_map['response48'] = 12
 
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 N_EPOCHS = 100
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 1e-5
 
 device = torch.device('cpu')
 if torch.cuda.is_available():
@@ -37,6 +37,8 @@ if torch.cuda.is_available():
 
 """ Train the ICASSP2022 model """
 def train_ICASSP(args):
+    LEARNING_RATE = 1e-5
+
     SELECTED_TASK = args.task
     if SELECTED_TASK == 0:
         N_RESPONSES = len(list(response_task_map.keys()))
@@ -44,41 +46,19 @@ def train_ICASSP(args):
         N_RESPONSES = len([k for k, v in response_task_map.items() if v == SELECTED_TASK])
     ds = utils.SleepinessDataset(device=device, selected_task=SELECTED_TASK)
     train_ds, test_ds = random_split(ds, [(len(ds)-int(len(ds)*.2)), int(len(ds)*.2)])
-
-    #oversampling train_ds
-    
-
-
-    class_count = np.unique(targets, return_counts=True)[1]
-    print(class_count)
-    return None
-
     train_dl = DataLoader(dataset=train_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
     validation_dl = DataLoader(dataset=test_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
     print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
 
-    # total = 0
-    # positive = 0
-    # negative = 0
-    # for i, (X, labels) in enumerate(validation_dl):
-    #     total += labels.size(0)
-    #     positive+= (labels == 1).sum().double().item()
-    #     negative+= (labels == 0).sum().double().item()
-    # print(f'Total: {total}\nPositive/Negative: {positive}/{negative}')
-    # print(f'print: {100*negative/total}%%')
-    #
-    # return None
-
     # 3-Construct a model and assign it to selected DEVICE
     my_model = ICASSP_Model(SELECTED_TASK).to(device)
     summary(my_model, (BATCH_SIZE, N_RESPONSES, 32, 32))
-    # class_weights = ds.get_class_weights()
 
-    #loss_func = torch.nn.CrossEntropyLoss()  # Softmax is internally computed.
-    #optimizer = torch.optim.Adam(params=my_model.parameters(), lr=LEARNING_RATE)
-    # loss_func = torch.nn.BCELoss(weight=class_weights)  # softmax() + binary CE
-    loss_func = torch.nn.BCELoss()  # softmax() + binary CE
-    optimizer = optim.SGD(my_model.parameters(), lr=LEARNING_RATE, momentum=0.9)
+    #class_weights, _ = ds.get_class_weights(train_ds.indices)
+    class_weights, _ = ds.get_class_weights()
+    # loss_func = torch.nn.BCELoss()  # softmax() + binary CE
+    loss_func = torch.nn.CrossEntropyLoss() # softmax included
+    optimizer = optim.RMSprop(my_model.parameters(), lr=LEARNING_RATE)
 
     #--------------
     def train_one_epoch(epoch):     # return (loss, accuracy)
@@ -92,7 +72,7 @@ def train_ICASSP(args):
             # forward propagation
             my_model.train()
             hypothesis = my_model(X)
-            loss = loss_func(torch.squeeze(hypothesis), labels.float())  # <= compute the loss function
+            loss = loss_func(hypothesis, labels)  # <= compute the loss function
             running_loss += loss.item()
 
             # Backward propagation
@@ -102,7 +82,8 @@ def train_ICASSP(args):
             # calculate current accuracy
             my_model.eval()
             pred = my_model(X)
-            predict = torch.squeeze(torch.round(pred).int())
+            #predict = torch.squeeze(torch.round(pred).int())
+            predict = torch.argmax(pred - class_weights.to(device), 1)
             total += labels.size(0)
             correct += predict.eq(labels).sum().double().item()
 
@@ -121,9 +102,10 @@ def train_ICASSP(args):
                 X, labels = X.to(device), labels.to(device)
 
                 pred = my_model(X)
-                loss = loss_func(torch.squeeze(pred), labels.float())
+                loss = loss_func(pred, labels)
                 running_loss += loss.item()
-                predict = torch.squeeze(torch.round(pred).int())
+                #predict = torch.squeeze(torch.round(pred).int())
+                predict = torch.argmax(pred - class_weights.to(device), 1)
                 total += labels.size(0)
                 correct += predict.eq(labels).sum().double().item()
             running_loss = running_loss/len(validation_dl)
@@ -140,7 +122,7 @@ def train_ICASSP(args):
     optimizer.zero_grad()  # <= initialization of the gradients
     for epoch in range(N_EPOCHS):
         # training
-        print(f"----- epoch {epoch + 1}/{N_EPOCHS} -----")
+        print(f"----- epoch {epoch + 1}/{N_EPOCHS} (learning rate = {LEARNING_RATE}-----")
         my_model.train()
         tr_loss, tr_acc = train_one_epoch(epoch)
 
@@ -286,16 +268,14 @@ def train_SDM(args):
 
 """ Train attention-model """
 def train_AttnSDM(args):
-    net = AttnSDM(im_size=32, num_classes=2)
-    summary(net, (BATCH_SIZE, 46, 32, 32))
+    my_model = AttnSDM(im_size=32, num_classes=2)
+    summary(my_model, (BATCH_SIZE, 46, 32, 32))
 
-    device = torch.device("cuda")
     device_ids = [0, ]
-
-    criterion = nn.CrossEntropyLoss()
+    loss_func = nn.CrossEntropyLoss()
     epochs = N_EPOCHS
-    model = nn.DataParallel(net, device_ids=device_ids).to(device)
-    criterion.to(device)
+    model = nn.DataParallel(my_model, device_ids=device_ids).to(device)
+    loss_func.to(device)
     # optimizer = optim.RMSprop(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=5e-4)
     optimizer = optim.RMSprop(model.parameters(), lr=LEARNING_RATE)
     lr_lambda = lambda epoch: np.power(0.5, int(epoch / 25))
@@ -315,15 +295,7 @@ def train_AttnSDM(args):
     training_loss = list()
     testing_accuracy = list()
     testing_loss = list()
-
     class_weights, class_counts = ds.get_class_weights(train_ds.indices)
-    print('train class_weights:', class_weights, class_counts)
-
-    cw, cc = ds.get_class_weights(test_ds.indices)
-    print('test class_weights:', cw, cc)
-
-
-
     step = 0
     running_avg_accuracy = 0
     aug = 0
@@ -342,10 +314,9 @@ def train_AttnSDM(args):
             pred, __, __, __ = model(inputs)
 
             # backward
-            loss = criterion(pred, labels)
+            loss = loss_func(pred, labels)
             loss.backward()
             optimizer.step()
-
             if i % 100 == 0:
                 model.eval()
                 pred, __, __, __ = model(inputs)
@@ -364,8 +335,6 @@ def train_AttnSDM(args):
         model.eval()
         total = 0
         correct = 0
-
-
         with torch.no_grad():
             # log scalars
             for i, data in enumerate(validation_dl, 0):
@@ -388,24 +357,125 @@ def train_AttnSDM(args):
     plt.legend()
     plt.savefig('model/train-attention-hist.png')
 
+""" Train Adaptive attention-model """
+def train_AdaptiveAttnSDM(args):
+    import gc
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.memory_summary(device=None, abbreviated=False)
+
+    my_model = Adaptive_AttnSDM(num_classes=2)
+    summary(my_model, (args.batch_size, 1, 46, 1024))
+
+    device_ids = [0, ]
+    loss_func = nn.CrossEntropyLoss()
+    model = nn.DataParallel(my_model, device_ids=device_ids).to(device)
+    loss_func.to(device)
+    # optimizer = optim.RMSprop(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.RMSprop(model.parameters(), lr=args.learning_rate)
+
+    ds = utils.SleepinessDataset(device=device, selected_task=args.task)
+    n_samples = len(ds)
+    n_test_samples = int(n_samples*.25)
+    n_train_samples = n_samples - n_test_samples
+    train_ds, test_ds = random_split(ds, [n_train_samples, n_test_samples])
+
+    train_dl = DataLoader(dataset=train_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
+    validation_dl = DataLoader(dataset=test_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
+    print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
+
+    training_accuracy = list()
+    training_loss = list()
+    testing_accuracy = list()
+    testing_loss = list()
+    class_weights, class_counts = ds.get_class_weights()
+    running_avg_accuracy = 0
+
+    for epoch in range(args.epoch):
+        print(f"\nEpoch {epoch+1}/{args.epoch} @ lr={optimizer.param_groups[0]['lr']} ------")
+        avg_loss = 0.0
+        avg_acc = 0.0
+        for i, (inputs, labels) in tqdm(enumerate(train_dl, start=0), total=len(train_dl)):
+            model.train()
+            model.zero_grad()
+            optimizer.zero_grad()
+            inputs = torch.unsqueeze(inputs, dim=1) # reshape from (?, 46, 1024) --> (?, 1, 46, 1024)
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            # forward
+            pred, __, __, __ = model(inputs)
+
+            # backward
+            loss = loss_func(pred, labels)
+            loss.backward()
+            optimizer.step()
+            # print(f"  > step {i+1}/{len(train_dl)} loss={loss.item():.4f}")
+
+            avg_loss += loss.item()/len(train_dl)
+
+            model.eval()
+            pred, __, __, __ = model(inputs)
+            predict = torch.argmax(pred - class_weights.to(device), 1)
+            total = labels.size(0)
+            correct = torch.eq(predict, labels).sum().double().item()
+            avg_acc += (correct/total)/len(train_dl)
+
+        model.eval()
+        total = 0
+        correct = 0
+        with torch.no_grad():
+            # log scalars
+            for i, (inputs_test, labels_test) in enumerate(validation_dl, 0):
+                inputs_test = torch.unsqueeze(inputs_test, dim=1)  # reshape from (?, 46, 1024) --> (?, 1, 46, 1024)
+                inputs_test, labels_test = inputs_test.to(device), labels_test.to(device)
+                pred_test, _, _, _ = model(inputs_test)
+
+                predict = torch.argmax(pred_test - class_weights.to(device), 1)
+                total += labels_test.size(0)
+                correct += torch.eq(predict, labels_test).sum().double().item()
+            # print(f"  > accuracy on test data: {(100 * correct / total):.2f}%")
+            testing_accuracy.append(correct/total)
+
+        #logging
+        training_accuracy.append(avg_acc)
+        training_loss.append(avg_loss)
+        print(f"------->avg.loss={avg_loss:.4f} train_acc={100*avg_acc:.2f}% test_acc={100 * testing_accuracy[-1]:.2f}%")
+
+
+    # plotting the train
+    import matplotlib.pyplot as plt
+    plt.plot([i for i in range(len(training_loss))], training_loss, label='Training loss')
+    plt.plot([i for i in range(len(training_accuracy))], training_accuracy, label='Training Accurracy')
+    plt.plot([i for i in range(len(testing_accuracy))], testing_accuracy, label='Test Accuracy')
+    plt.xlabel('epoch')
+    plt.legend()
+    plt.savefig('model/train-attention-hist-new.png')
+
+
 
 """ Main function """
+
 if __name__=='__main__':
     custom_parser = argparse.ArgumentParser(description='Training Sleepiness Classification Model')
-    custom_parser.add_argument('--task', type=int, default=1)
+    custom_parser.add_argument('--task', type=int, default=0)
     custom_parser.add_argument('--attention', type=int, default=0)
-    custom_parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
+    custom_parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate')
     custom_parser.add_argument('--epoch', type=int, default=20, help='Number of epochs')
-    custom_parser.add_argument('--batch_size', type=int, default=20, help='Batch size')
+    custom_parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
+
 
     custom_args, _ = custom_parser.parse_known_args()
 
+    # train_ICASSP(custom_args)
+    # exit(0)
+
     if custom_args.attention > 0:
-        train_AttnSDM(custom_args)
+        #train_AttnSDM(custom_args)
+        train_AdaptiveAttnSDM(custom_args)
     else:
         train_SDM(custom_args)
 
-    # train_ICASSP(custom_args)
+
 
 
 

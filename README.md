@@ -11,9 +11,8 @@ Use *--task=0* to train the model with all tasks' data
 
 #### With Attention mechanism
 ```bash
-python3 train.py --attention=1
+python3 train.py --attention=1 --learning_rate=0.001 --batch_size=32 --epoch=20
 ```
-
 
 
 ## Speech tasks
