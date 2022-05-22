@@ -1,1 +1,7 @@
-__pycache__
+__pycache__/
+model/
+.json
+.pt
+.png
+.jpg
+.jpeg

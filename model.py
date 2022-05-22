@@ -84,9 +84,9 @@ class ICASSP_Model(nn.Module):
         return out
 
 """ None-Attention: Sleepiness Detection Model (SDM) using (1x1024) embeding """
-class SDM(nn.Module):
+class Simple_SDM(nn.Module):
     def __init__(self, selected_task=1, ):
-        super(SDM, self).__init__()
+        super(Simple_SDM, self).__init__()
         assert(selected_task in range(0, 13)), 'Selected task needs be from 0 to 12'
 
         if selected_task != 0:
@@ -184,47 +184,52 @@ class Adaptive_LinearAttentionBlock(nn.Module):
             g = F.adaptive_avg_pool2d(g, (1, 1)).view(N, C)
         return c.view(N, 1, W, H), g
 
-class Adaptive_GridAttentionBlock(nn.Module):
-    def __init__(self, in_features_l, in_features_g, attn_features, up_factor, normalize_attn=False):
-        super(Adaptive_GridAttentionBlock, self).__init__()
-        self.up_factor = up_factor
-        self.normalize_attn = normalize_attn
-        self.W_l = nn.Conv2d(in_channels=in_features_l, out_channels=attn_features, kernel_size=1, padding=0,
-                             bias=False)
-        self.W_g = nn.Conv2d(in_channels=in_features_g, out_channels=attn_features, kernel_size=1, padding=0,
-                             bias=False)
-        self.phi = nn.Conv2d(in_channels=attn_features, out_channels=1, kernel_size=1, padding=0, bias=True)
-
-    def forward(self, l, g):
-        N, C, W, H = l.size()
-        l_ = self.W_l(l)
-        g_ = self.W_g(g)
-        if self.up_factor > 1:
-            g_ = F.interpolate(g_, scale_factor=self.up_factor, mode='bilinear', align_corners=False)
-        c = self.phi(F.relu(l_ + g_))  # batch_sizex1xWxH
-        # compute attn map
-        if self.normalize_attn:
-            a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
-        else:
-            a = torch.sigmoid(c)
-        # re-weight the local feature
-        f = torch.mul(a.expand_as(l), l)  # batch_sizexCxWxH
-        if self.normalize_attn:
-            output = f.view(N, C, -1).sum(dim=2)  # weighted sum
-        else:
-            output = F.adaptive_avg_pool2d(f, (1, 1)).view(N, C)
-
-        return c.view(N, 1, W, H), output
+# class Adaptive_GridAttentionBlock(nn.Module):
+#     def __init__(self, in_features_l, in_features_g, attn_features, up_factor, normalize_attn=False):
+#         super(Adaptive_GridAttentionBlock, self).__init__()
+#         self.up_factor = up_factor
+#         self.normalize_attn = normalize_attn
+#         self.W_l = nn.Conv2d(in_channels=in_features_l, out_channels=attn_features, kernel_size=1, padding=0,
+#                              bias=False)
+#         self.W_g = nn.Conv2d(in_channels=in_features_g, out_channels=attn_features, kernel_size=1, padding=0,
+#                              bias=False)
+#         self.phi = nn.Conv2d(in_channels=attn_features, out_channels=1, kernel_size=1, padding=0, bias=True)
+#
+#     def forward(self, l, g):
+#         N, C, W, H = l.size()
+#         l_ = self.W_l(l)
+#         g_ = self.W_g(g)
+#         if self.up_factor > 1:
+#             g_ = F.interpolate(g_, scale_factor=self.up_factor, mode='bilinear', align_corners=False)
+#         c = self.phi(F.relu(l_ + g_))  # batch_sizex1xWxH
+#         # compute attn map
+#         if self.normalize_attn:
+#             a = F.softmax(c.view(N, 1, -1), dim=2).view(N, 1, W, H)
+#         else:
+#             a = torch.sigmoid(c)
+#         # re-weight the local feature
+#         f = torch.mul(a.expand_as(l), l)  # batch_sizexCxWxH
+#         if self.normalize_attn:
+#             output = f.view(N, C, -1).sum(dim=2)  # weighted sum
+#         else:
+#             output = F.adaptive_avg_pool2d(f, (1, 1)).view(N, C)
+#
+#         return c.view(N, 1, W, H), output
 
 
 """
     Adaptive attention Model which accepts 46 x 1024 x 1-channel
     Reserve the size of input through layers (46 x 1024)
+    
+    ## Implementation: “Learn To Pay Attention” published in ICLR 2018 conference
+    ## https://nivedwho.github.io/blog/posts/attncnn/
+    ## https://colab.research.google.com/github/nivedwho/Colab/blob/main/SelfAttnCNN.ipynb#scrollTo=BYnr1NuQFFJk
 """
 class Adaptive_AttnSDM(nn.Module):
-    def __init__(self, num_classes, normalize_attn=True, selected_task=0):
+    def __init__(self, num_classes, normalize_attn=True, selected_task=0, apply_attention=True):
         super(Adaptive_AttnSDM, self).__init__()
-
+        # using attention block
+        self.apply_attention = apply_attention
         if selected_task != 0:
             self.input_channels = len([k for k, v in response_task_map.items() if v == selected_task])
         else:
@@ -234,9 +239,9 @@ class Adaptive_AttnSDM(nn.Module):
         self.cv1 = Adaptive_ConvBlock(in_features=1, out_features=64, num_conv=2, pool=True)         # 46 responses ~ 46 input channels
         self.cv2 = Adaptive_ConvBlock(in_features=64, out_features=128, num_conv=2, pool=True)
         self.cv3 = Adaptive_ConvBlock(in_features=128, out_features=256, num_conv=1, pool=True)
-        self.cv4 = Adaptive_ConvBlock(256, 512, 1)
-        self.cv5 = Adaptive_ConvBlock(512, 512, 1)
-        self.cv6 = Adaptive_ConvBlock(512, 512, 1)
+        self.cv4 = Adaptive_ConvBlock(in_features=256, out_features=512, num_conv=1)
+        self.cv5 = Adaptive_ConvBlock(in_features=512, out_features=512, num_conv=1)
+        self.cv6 = Adaptive_ConvBlock(in_features=512, out_features=512, num_conv=1)
         self.dense = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1, bias=True)
 
         # Attention
@@ -246,8 +251,12 @@ class Adaptive_AttnSDM(nn.Module):
         self.attn3 = Adaptive_LinearAttentionBlock(in_features=512, normalize_attn=normalize_attn)
 
         # Final Classification Layer
+        if self.apply_attention:
+            in_feat = 512 * 3 + 2
+        else:
+            in_feat = 512*46*32
         self.classify = nn.Sequential(
-                                nn.Linear(in_features=512 * 3, out_features=1024, bias=True),
+                                nn.Linear(in_features=in_feat, out_features=1024, bias=True),
                                 nn.ReLU(),
                                 nn.Linear(in_features=1024, out_features=256),
                                 nn.ReLU(),
@@ -262,10 +271,11 @@ class Adaptive_AttnSDM(nn.Module):
         # weight = U [-(1/sqrt(n)), 1/sqrt(n)]
         weights_init_xavierNormal(self)
 
-    def forward(self, x):
+    def forward(self, x, age, gender):
         x = self.cv1(x)         # (?, 1, 46, 1024) --> (?, 64, 46, 512)
         x = self.cv2(x)         # (?, 64, 46, 512) --> (?, 128, 46, 256)
         x = self.cv3(x)         # (?, 128, 46, 256) --> (?, 256, 46, 128)
+
         l1 = x
         x = self.cv4(x)         # (?, 256, 46, 128) --> (?, 512, 46, 128)
         l2 = x
@@ -273,14 +283,22 @@ class Adaptive_AttnSDM(nn.Module):
         l3 = x
         x = self.cv6(x)         # (?, 512, 46, 128) --> (?, 512, 46, 128)
         g = self.dense(x)       # (?, 512, 46, 32)
+        #print(g.size())
 
         # Attention part
-        c1, g1 = self.attn1(self.projector(l1), g)
-        c2, g2 = self.attn2(l2, g)      # c1, c2, c3: (1, 46, 32)
-        c3, g3 = self.attn3(l3, g)      # g1, g2, g3: (64, 512)
-        g = torch.cat((g1, g2, g3), dim=1)  # batch_size x 512*3
+        c1, c2, c3 = None, None, None
+        if self.apply_attention:
+            c1, g1 = self.attn1(self.projector(l1), g)
+            c2, g2 = self.attn2(l2, g)      # c1, c2, c3: (?, 1, 46, 32)
+            c3, g3 = self.attn3(l3, g)      # g1, g2, g3: (?, 512)
+            g = torch.cat((g1, g2, g3), dim=1)  # (?, 512*3)
+            #print(c1.size(), g.size())
+        else:
+            g = g.view(g.size(0), -1)  # Flatten
 
-        # classification layer
+        # classification Block
+        # add age & gender as two extended feature to g
+        g = torch.cat((g, age, gender), dim=1)
         x = self.classify(g)  # batch_size x num_classes
         return [x, c1, c2, c3]
 
@@ -443,216 +461,5 @@ class AttnSDM(nn.Module):
         x = self.classify(g)  # batch_size x num_classes
         return [x, c1, c2, c3]
 
-""" 
-    This implementation is brrowed from: 
-    https://www.kaggle.com/code/robertke94/pytorch-bi-lstm-attention/notebook
-"""
-
-"""
-Dynamic LSTM module, which can handle variable length input sequence.
-
-    Parameters
-    ----------
-        input_size : input size
-        hidden_size : hidden size
-        num_layers : number of hidden layers. Default: 1
-        dropout : dropout rate. Default: 0.5
-        bidirectional : If True, becomes a bidirectional RNN. Default: False.
-
-    Inputs
-    ------
-        input: tensor, shaped [batch, max_step, input_size]
-        seq_lens: tensor, shaped [batch], sequence lengths of batch
-
-    Outputs
-    -------
-    output: tensor, shaped [batch, max_step, num_directions * hidden_size],
-            tensor containing the output features (h_t) from the last layer of the LSTM, for each t.
-"""
-
-class DynamicLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size=100, num_layers=1, dropout=0., bidirectional=False):
-        super(DynamicLSTM, self).__init__()
-
-        self.lstm = nn.LSTM(
-            input_size, hidden_size, num_layers, bias=True,
-            batch_first=True, dropout=dropout, bidirectional=bidirectional)
-
-    def forward(self, x, seq_lens):
-        # sort input by descending length
-        _, idx_sort = torch.sort(seq_lens, dim=0, descending=True)
-        _, idx_unsort = torch.sort(idx_sort, dim=0)
-        x_sort = torch.index_select(x, dim=0, index=idx_sort)
-        seq_lens_sort = torch.index_select(seq_lens, dim=0, index=idx_sort)
-
-        # pack input
-        x_packed = pack_padded_sequence(x_sort, seq_lens_sort, batch_first=True)
-
-        # pass through rnn
-        y_packed, _ = self.lstm(x_packed)
-
-        # unpack output
-        y_sort, length = pad_packed_sequence(y_packed, batch_first=True)
-
-        # unsort output to original order
-        y = torch.index_select(y_sort, dim=0, index=idx_unsort)
-
-        return y
-
-""" Model for Sleepiness classification. """
-class RNN_AttnSDM(nn.Module):
-    def mask_softmax(matrix, mask=None):
-        """Perform softmax on length dimension with masking.
-
-        Parameters
-        ----------
-        matrix: torch.float, shape [batch_size, .., max_len]
-        mask: torch.long, shape [batch_size, max_len]
-            Mask tensor for sequence.
-
-        Returns
-        -------
-        output: torch.float, shape [batch_size, .., max_len]
-            Normalized output in length dimension.
-        """
-
-        if mask is None:
-            result = F.softmax(matrix, dim=-1)
-        else:
-            mask_norm = ((1 - mask) * (-10000) ).to(matrix)
-            for i in range(matrix.dim() - mask_norm.dim()):
-                mask_norm = mask_norm.unsqueeze(1)
-            result = F.softmax(matrix + mask_norm, dim=-1)
-
-        return result
-
-    def mask_mean(seq, mask=None):
-        """Compute mask average on length dimension.
-
-        Parameters
-        ----------
-        seq : torch.float, size [batch, max_seq_len, n_channels],
-            Sequence vector.
-        mask : torch.long, size [batch, max_seq_len],
-            Mask vector, with 0 for mask.
-
-        Returns
-        -------
-        mask_mean : torch.float, size [batch, n_channels]
-            Mask mean of sequence.
-        """
-
-        if mask is None:
-            return torch.mean(seq, dim=1)
-
-        mask_sum = torch.sum(  # [b,msl,nc]->[b,nc]
-            seq * mask.unsqueeze(-1).float(), dim=1)
-        seq_len = torch.sum(mask, dim=-1)  # [b]
-        mask_mean = mask_sum / (seq_len.unsqueeze(-1).float() + 1e-6)
-
-        return mask_mean
-
-    def mask_max(seq, mask=None):
-        """Compute mask max on length dimension.
-
-        Parameters
-        ----------
-        seq : torch.float, size [batch, max_seq_len, n_channels],
-            Sequence vector.
-        mask : torch.long, size [batch, max_seq_len],
-            Mask vector, with 0 for mask.
-
-        Returns
-        -------
-        mask_max : torch.float, size [batch, n_channels]
-            Mask max of sequence.
-        """
-
-        if mask is None:
-            return torch.mean(seq, dim=1)
-
-        mask_max, _ = torch.max(  # [b,msl,nc]->[b,nc]
-                                seq + (1 - mask.unsqueeze(-1).float()) * (-10000),  dim=1)
-        return mask_max
-
-    def seq_mask(seq_len, max_len):
-        """Create sequence mask.
-
-        Parameters
-        ----------
-        seq_len: torch.long, shape [batch_size],
-            Lengths of sequences in a batch.
-        max_len: int
-            The maximum sequence length in a batch.
-
-        Returns
-        -------
-        mask: torch.long, shape [batch_size, max_len]
-            Mask tensor for sequence.
-        """
-
-        idx = torch.arange(max_len).to(seq_len).repeat(seq_len.size(0), 1)
-        mask = torch.gt(seq_len.unsqueeze(1), idx).to(seq_len)
-
-        return mask
-
-    def __init__(self, args):
-        super(RNN_AttnSDM, self).__init__()
-
-        vocab_size = args["vocab_size"]
-        pretrained_embed = args["pretrained_embed"]
-        padding_idx = args["padding_idx"]
-        embed_dim = 300
-        num_classes = 1
-        num_layers = 2
-        hidden_dim = 50
-        dropout = 0.5
-
-        if pretrained_embed is None:
-            self.embed = nn.Embedding(vocab_size, embed_dim)
-        else:
-            self.embed = nn.Embedding.from_pretrained(
-                pretrained_embed, freeze=False)
-        self.embed.padding_idx = padding_idx
-
-        self.rnn = DynamicLSTM(
-            embed_dim, hidden_dim, num_layers=num_layers,
-            dropout=dropout, bidirectional=True)
-
-        self.fc_att = nn.Linear(hidden_dim * 2, 1)
-
-        self.fc = nn.Linear(hidden_dim * 6, hidden_dim)
-        self.act = nn.ReLU()
-        self.drop = nn.Dropout(dropout)
-        self.out = nn.Linear(hidden_dim, num_classes)
-
-        self.loss = nn.BCEWithLogitsLoss()
-
-    def forward(self, word_seq, seq_len):
-        # mask
-        max_seq_len = torch.max(seq_len)
-        mask = self.seq_mask(seq_len, max_seq_len)  # [b,msl]
-
-        # embed
-        e = self.drop(self.embed(word_seq))  # [b,msl]->[b,msl,e]
-
-        # bi-rnn
-        r = self.rnn(e, seq_len)  # [b,msl,e]->[b,msl,h*2]
-
-        # attention
-        att = self.fc_att(r).squeeze(-1)  # [b,msl,h*2]->[b,msl]
-        att = self.mask_softmax(att, mask)  # [b,msl]
-        r_att = torch.sum(att.unsqueeze(-1) * r, dim=1)  # [b,h*2]
-
-        # pooling
-        r_avg = self.mask_mean(r, mask)  # [b,h*2]
-        r_max = self.mask_max(r, mask)  # [b,h*2]
-        r = torch.cat([r_avg, r_max, r_att], dim=-1)  # [b,h*6]
-
-        # feed-forward
-        f = self.drop(self.act(self.fc(r)))  # [b,h*6]->[b,h]
-        logits = self.out(f).squeeze(-1)  # [b,h]->[b]
-
-        return logits
 
 

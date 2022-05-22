@@ -10,7 +10,7 @@ import json
 import torch
 import utils
 from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
-from model import SDM, AttnSDM, Adaptive_AttnSDM, ICASSP_Model
+from model import Simple_SDM, AttnSDM, Adaptive_AttnSDM, ICASSP_Model
 import numpy as np
 
 '''
@@ -65,7 +65,7 @@ def train_ICASSP(args):
         running_loss = 0
         correct = 0
         total = 0
-        for i, (X, labels) in enumerate(train_dl):
+        for i, (X, labels, _, _) in enumerate(train_dl):
             X = X.view(-1, N_RESPONSES, 32, 32)     # (?, N, 1024) --> (?, N, 32, 32)
             X, labels = X.to(device), labels.to(device)
 
@@ -97,7 +97,7 @@ def train_ICASSP(args):
         correct = 0
         total = 0
         with torch.no_grad():
-            for i, (X, labels) in enumerate(validation_dl):
+            for i, (X, labels, _, _) in enumerate(validation_dl):
                 X = X.view(-1, N_RESPONSES, 32, 32) # (?, N, 1024) --> (?, N, 32, 32)
                 X, labels = X.to(device), labels.to(device)
 
@@ -171,7 +171,7 @@ def train_SDM(args):
     print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
 
     # 3-Construct a model and assign it to selected DEVICE
-    my_model = SDM(SELECTED_TASK).to(device)
+    my_model = Simple_SDM(SELECTED_TASK).to(device)
     summary(my_model, (BATCH_SIZE, N_RESPONSES, 32, 32))
 
     loss_func = torch.nn.CrossEntropyLoss()    # Softmax is internally computed.
@@ -195,7 +195,7 @@ def train_SDM(args):
 
         avg_cost = 0
         my_model.train()
-        for i, (batch_X, batch_Y) in tqdm(enumerate(train_dl)):
+        for i, (batch_X, batch_Y, _, _) in tqdm(enumerate(train_dl), total=len(train_dl)):
             X = batch_X  # (N, 1024)
             Y = batch_Y
             train_targets = torch.cat((train_targets, Y))
@@ -230,7 +230,7 @@ def train_SDM(args):
         my_model.eval()
         test_predicts = torch.empty(0)
         test_targets = torch.empty(0)
-        for i, (batch_X, batch_Y) in enumerate(validation_dl):
+        for i, (batch_X, batch_Y, _, _) in enumerate(validation_dl):
             X = batch_X
             Y = batch_Y
             test_targets = torch.cat((test_targets, Y))
@@ -306,7 +306,7 @@ def train_AttnSDM(args):
             model.train()
             model.zero_grad()
             optimizer.zero_grad()
-            inputs, labels = data
+            inputs, labels, _, _ = data
             inputs = inputs.view(-1, 46, 32, 32)  # reshape from N x 1024 --> N x 32 x 32
             inputs, labels = inputs.to(device), labels.to(device)
 
@@ -338,7 +338,7 @@ def train_AttnSDM(args):
         with torch.no_grad():
             # log scalars
             for i, data in enumerate(validation_dl, 0):
-                inputs_test, labels_test = data
+                inputs_test, labels_test, _, _ = data
                 inputs_test = inputs_test.view(-1, 46, 32, 32)
                 inputs_test, labels_test = inputs_test.to(device), labels_test.to(device)
                 pred_test, _, _, _ = model(inputs_test)
@@ -364,8 +364,10 @@ def train_AdaptiveAttnSDM(args):
     torch.cuda.empty_cache()
     torch.cuda.memory_summary(device=None, abbreviated=False)
 
-    my_model = Adaptive_AttnSDM(num_classes=2)
-    summary(my_model, (args.batch_size, 1, 46, 1024))
+    my_model = Adaptive_AttnSDM(num_classes=2, apply_attention=args.attention)
+    summary(my_model, (args.batch_size, 1, 46, 1024),
+            age=torch.ones(args.batch_size, 1),
+            gender=torch.zeros(args.batch_size, 1))
     device_ids = [0, ]
     loss_func = nn.CrossEntropyLoss()
     model = nn.DataParallel(my_model, device_ids=device_ids).to(device)
@@ -387,22 +389,25 @@ def train_AdaptiveAttnSDM(args):
     training_loss = list()
     testing_accuracy = list()
     testing_loss = list()
-    class_weights, class_counts = ds.get_class_weights()
-    running_avg_accuracy = 0
+    class_weights, class_counts = ds.get_class_weights(train_ds.indices)
 
+    c1, c2, c3 = torch.zeros(46, 32), torch.zeros(46, 32), torch.zeros(46, 32)
     for epoch in range(args.epoch):
         print(f"\nEpoch {epoch+1}/{args.epoch} @ lr={optimizer.param_groups[0]['lr']} ------")
         avg_loss = 0.0
         avg_acc = 0.0
-        for i, (inputs, labels) in tqdm(enumerate(train_dl, start=0), total=len(train_dl), desc='Trainig step'):
+        for i, (inputs, labels, ages, genders) in tqdm(enumerate(train_dl, start=0), total=len(train_dl), desc='Training step'):
             model.train()
             model.zero_grad()
             optimizer.zero_grad()
             inputs = torch.unsqueeze(inputs, dim=1) # reshape from (?, 46, 1024) --> (?, 1, 46, 1024)
             inputs, labels = inputs.to(device), labels.to(device)
+            ages, genders = ages.float().to(device), genders.float().to(device)
+            ages = torch.unsqueeze(ages, dim=1)
+            genders = torch.unsqueeze(genders, dim=1)
 
             # forward
-            pred, __, __, __ = model(inputs)
+            pred, __, __, __ = model(inputs, ages, genders)
 
             # backward
             loss = loss_func(pred, labels)
@@ -413,7 +418,7 @@ def train_AdaptiveAttnSDM(args):
             avg_loss += loss.item()/len(train_dl)
 
             model.eval()
-            pred, __, __, __ = model(inputs)
+            pred, c1, c2, c3 = model(inputs, ages, genders)
             predict = torch.argmax(pred - class_weights.to(device), 1)
             total = labels.size(0)
             correct = torch.eq(predict, labels).sum().double().item()
@@ -428,10 +433,14 @@ def train_AdaptiveAttnSDM(args):
             test_total = 0
             test_correct = 0
             avg_loss = 0.0
-            for i, (inputs_test, labels_test) in enumerate(validation_dl, 0):
+            for i, (inputs_test, labels_test, ages_test, genders_test) in enumerate(validation_dl, 0):
                 inputs_test = torch.unsqueeze(inputs_test, dim=1)  # reshape from (?, 46, 1024) --> (?, 1, 46, 1024)
                 inputs_test, labels_test = inputs_test.to(device), labels_test.to(device)
-                pred_test, _, _, _ = model(inputs_test)
+                ages_test, genders_test = ages_test.float().to(device), genders_test.float().to(device)
+                ages_test = torch.unsqueeze(ages_test, dim=1)
+                genders_test = torch.unsqueeze(genders_test, dim=1)
+
+                pred_test, _, _, _ = model(inputs_test, ages_test, genders_test)
                 avg_loss += loss_func(pred_test, labels_test).item()/len(validation_dl)
                 predict = torch.argmax(pred_test - class_weights.to(device), 1)
                 test_total += labels_test.size(0)
@@ -443,7 +452,8 @@ def train_AdaptiveAttnSDM(args):
 
     # save training history
     print("Training is Done!")
-    jsonfile = open('image/train-attention-hist-new.json', 'w')
+
+    jsonfile = open('image/train-attention-hist'+str(args.learning_rate)+'.json', 'w')
     json.dump({'train_loss' : training_loss,
                'train_acc' : training_accuracy,
                'test_loss': testing_loss,
@@ -458,31 +468,60 @@ def train_AdaptiveAttnSDM(args):
     plt.plot(testing_accuracy, label='Test Accuracy')
     plt.xlabel('epoch')
     plt.legend()
-    plt.savefig('image/train-attention-hist-new.png')
+    plt.savefig('image/train-attention-hist'+str(args.learning_rate)+'.png')
 
 
+    # save attention tensors
+    torch.save(c1, 'model/c1.pt')
+    torch.save(c2, 'model/c2.pt')
+    torch.save(c3, 'model/c3.pt')
+
+    # plotting attention images
+    att1 = torch.squeeze(c1[0].detach().cpu()).t()
+    att2 = torch.squeeze(c2[0].detach().cpu()).t()
+    att3 = torch.squeeze(c3[0].detach().cpu()).t()
+
+    fig = plt.figure()
+    c = plt.imshow(att1)
+    plt.colorbar(c)
+    plt.savefig('image/attmap1.png')
+
+    fig = plt.figure()
+    c = plt.imshow(att2)
+    plt.colorbar(c)
+    plt.savefig('image/attmap2.png')
+
+    fig = plt.figure()
+    c = plt.imshow(att3)
+    plt.colorbar(c)
+    plt.savefig('image/attmap3.png')
 
 """ Main function """
-
 if __name__=='__main__':
     custom_parser = argparse.ArgumentParser(description='Training Sleepiness Classification Model')
     custom_parser.add_argument('--task', type=int, default=0)
-    custom_parser.add_argument('--attention', type=int, default=0)
-    custom_parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate')
+    custom_parser.add_argument('--attention', type=bool, default=True)
+    custom_parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
     custom_parser.add_argument('--epoch', type=int, default=20, help='Number of epochs')
     custom_parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
-
-
     custom_args, _ = custom_parser.parse_known_args()
 
     # train_ICASSP(custom_args)
+    # train_SDM(custom_args)
+    # train_AttnSDM(custom_args)
     # exit(0)
 
-    if custom_args.attention > 0:
-        #train_AttnSDM(custom_args)
-        train_AdaptiveAttnSDM(custom_args)
-    else:
-        train_SDM(custom_args)
+    train_AdaptiveAttnSDM(custom_args)
+
+    # x = torch.rand(64, 1024)
+    # y = torch.rand(64, 1)
+    # z = torch.rand(64, 1)
+    #
+    # g = torch.cat((x, y, z), dim=1)
+    # print(g.size())
+
+
+
 
 
 
