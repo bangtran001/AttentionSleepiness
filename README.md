@@ -35,7 +35,7 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 | Female|     1,097       |      206     |1,303 |
 | Male  |     620       |      93     |713 |
 | Other  |    18       |     6     | 24 |
-| **Total**  |    **1,544**  | **284**     |**2,040**|
+| **Total**  |    **1,735**  | **305**     |**2,040**|
 
 </td><td>
 
