@@ -10,7 +10,7 @@ import json
 import torch
 import utils
 from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
-from model import Simple_SDM, AttnSDM, Adaptive_AttnSDM, ICASSP_Model
+from model import Simple_SDM, Adaptive_AttnSDM, GeMAPS_AttnSDM, ICASSP_Model
 import numpy as np
 
 '''
@@ -44,7 +44,7 @@ def train_ICASSP(args):
         N_RESPONSES = len(list(response_task_map.keys()))
     else:
         N_RESPONSES = len([k for k, v in response_task_map.items() if v == SELECTED_TASK])
-    ds = utils.SleepinessDataset(device=device, selected_task=SELECTED_TASK)
+    ds = utils.HuBERTEmbedDataset(device=device, selected_task=SELECTED_TASK)
     train_ds, test_ds = random_split(ds, [(len(ds)-int(len(ds)*.2)), int(len(ds)*.2)])
     train_dl = DataLoader(dataset=train_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
     validation_dl = DataLoader(dataset=test_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
@@ -160,7 +160,7 @@ def train_SDM(args):
     else:
         N_RESPONSES = len([k for k, v in response_task_map.items() if v == SELECTED_TASK])
 
-    ds = utils.SleepinessDataset(device=device, selected_task=SELECTED_TASK)
+    ds = utils.HuBERTEmbedDataset(device=device, selected_task=SELECTED_TASK)
     n_samples = len(ds)
     n_test_samples = int(n_samples*.25)
     n_train_samples = n_samples - n_test_samples
@@ -281,7 +281,7 @@ def train_AttnSDM(args):
     lr_lambda = lambda epoch: np.power(0.5, int(epoch / 25))
     scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
 
-    ds = utils.SleepinessDataset(device=device, selected_task=0)
+    ds = utils.HuBERTEmbedDataset(device=device, selected_task=0)
     n_samples = len(ds)
     n_test_samples = int(n_samples*.25)
     n_train_samples = n_samples - n_test_samples
@@ -357,17 +357,19 @@ def train_AttnSDM(args):
     plt.legend()
     plt.savefig('model/train-attention-hist.png')
 
+
 """ Train Adaptive attention-model """
 def train_AdaptiveAttnSDM(args):
     import gc
     gc.collect()
     torch.cuda.empty_cache()
     torch.cuda.memory_summary(device=None, abbreviated=False)
+    apply_attention = True if args.attention !=0 else False
+    age_gender = True if args.age_gender !=0 else False
 
-    my_model = Adaptive_AttnSDM(num_classes=2, apply_attention=args.attention)
-    summary(my_model, (args.batch_size, 1, 46, 1024),
-            age=torch.ones(args.batch_size, 1),
-            gender=torch.zeros(args.batch_size, 1))
+    my_model = Adaptive_AttnSDM(num_classes=2,
+                                apply_attention=apply_attention,
+                                age_gender=age_gender)
     device_ids = [0, ]
     loss_func = nn.CrossEntropyLoss()
     model = nn.DataParallel(my_model, device_ids=device_ids).to(device)
@@ -375,12 +377,14 @@ def train_AdaptiveAttnSDM(args):
     # optimizer = optim.RMSprop(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=5e-4)
     optimizer = optim.RMSprop(model.parameters(), lr=args.learning_rate)
 
-    ds = utils.SleepinessDataset(device=device, selected_task=args.task)
+    ds = utils.HuBERTEmbedDataset(device=device, selected_task=args.task)
+    summary(my_model, (args.batch_size, 1, 46, 1024),
+            age=torch.ones(args.batch_size, 1),
+            gender=torch.zeros(args.batch_size, 1))
     n_samples = len(ds)
-    n_test_samples = int(n_samples*.25)
+    n_test_samples = int(n_samples*.20)
     n_train_samples = n_samples - n_test_samples
     train_ds, test_ds = random_split(ds, [n_train_samples, n_test_samples])
-
     train_dl = DataLoader(dataset=train_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
     validation_dl = DataLoader(dataset=test_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
     print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
@@ -389,8 +393,8 @@ def train_AdaptiveAttnSDM(args):
     training_loss = list()
     testing_accuracy = list()
     testing_loss = list()
+    # use classweight in the case don't use undersampling method
     class_weights, class_counts = ds.get_class_weights(train_ds.indices)
-
     c1, c2, c3 = torch.zeros(46, 32), torch.zeros(46, 32), torch.zeros(46, 32)
     for epoch in range(args.epoch):
         print(f"\nEpoch {epoch+1}/{args.epoch} @ lr={optimizer.param_groups[0]['lr']} ------")
@@ -418,8 +422,11 @@ def train_AdaptiveAttnSDM(args):
             avg_loss += loss.item()/len(train_dl)
 
             model.eval()
-            pred, c1, c2, c3 = model(inputs, ages, genders)
+            pred, c1, c2, c3 = model(inputs.float(), ages, genders)
+
+            # use classweight in the case unused undersampling method
             predict = torch.argmax(pred - class_weights.to(device), 1)
+            # predict = torch.argmax(pred, 1)
             total = labels.size(0)
             correct = torch.eq(predict, labels).sum().double().item()
             avg_acc += (correct/total)/len(train_dl)
@@ -440,9 +447,12 @@ def train_AdaptiveAttnSDM(args):
                 ages_test = torch.unsqueeze(ages_test, dim=1)
                 genders_test = torch.unsqueeze(genders_test, dim=1)
 
-                pred_test, _, _, _ = model(inputs_test, ages_test, genders_test)
+                pred_test, _, _, _ = model(inputs_test.float(), ages_test, genders_test)
+
                 avg_loss += loss_func(pred_test, labels_test).item()/len(validation_dl)
+                # use classweight in the case don't use undersampling method
                 predict = torch.argmax(pred_test - class_weights.to(device), 1)
+                #predict = torch.argmax(pred_test, 1)
                 test_total += labels_test.size(0)
                 test_correct += torch.eq(predict, labels_test).sum().double().item()
         print(f"\tavg. test loss={avg_loss:.4f} \ttest accuracy={100 * (test_correct/test_total):.2f}%")
@@ -450,68 +460,218 @@ def train_AdaptiveAttnSDM(args):
         testing_loss.append(avg_loss)
         testing_accuracy.append(test_correct / test_total)
 
-    # save training history
     print("Training is Done!")
 
-    jsonfile = open('image/train-attention-hist'+str(args.learning_rate)+'.json', 'w')
-    json.dump({'train_loss' : training_loss,
-               'train_acc' : training_accuracy,
+    # -- save the model
+    if args.attention:
+        if age_gender:
+            torch.save(my_model.state_dict(),
+                       'model/attn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '.pth')
+            jsonfile = open('image/train-attention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '.json', 'w')
+        else :
+            torch.save(my_model.state_dict(),
+                       'model/attn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.pth')
+            jsonfile = open('image/train-attention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.json', 'w')
+    else:
+        if age_gender:
+            torch.save(my_model.state_dict(), 'model/noattn_model_weights_lr_'+str(args.learning_rate)+'.pth')
+            jsonfile = open('image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '.json', 'w')
+        else:
+            torch.save(my_model.state_dict(), 'model/noattn_model_weights_lr_'+str(args.learning_rate)+'-nogender.pth')
+            jsonfile = open(
+                'image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.json', 'w')
+
+    # -- save training history to json file
+    json.dump({'train_loss': training_loss,
+               'train_acc': training_accuracy,
                'test_loss': testing_loss,
                'test_acc': testing_accuracy}, jsonfile)
     jsonfile.close()
 
-    # plotting the train
+    # --- plotting the train
     import matplotlib.pyplot as plt
     plt.plot(training_loss, label='Training loss')
-    plt.plot(testing_loss, label='Testing loss')
+    #plt.plot(testing_loss, label='Testing loss')
     plt.plot(training_accuracy, label='Training Accurracy')
     plt.plot(testing_accuracy, label='Test Accuracy')
     plt.xlabel('epoch')
     plt.legend()
-    plt.savefig('image/train-attention-hist'+str(args.learning_rate)+'.png')
+    if args.attention:
+        if age_gender:
+            plt.savefig('image/train-attention-hist-lr-'+str(args.learning_rate)+ '-' + str(args.feature) +'.png')
+        else:
+            plt.savefig('image/train-attention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.png')
+    else:
+        if age_gender:
+            plt.savefig('image/train-noattention-hist-lr-'+str(args.learning_rate)+ '-' + str(args.feature) +'.png')
+        if not age_gender:
+            plt.savefig('image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.png')
 
+    # --- save attention tensors
+    if args.attention:
+        if age_gender:
+            torch.save(c1, 'model/c1-'+ str(args.feature) + '.pt')
+            torch.save(c2, 'model/c2-'+ str(args.feature) + '.pt')
+            torch.save(c3, 'model/c3-'+ str(args.feature) + '.pt')
+        else:
+            torch.save(c1, 'model/c1-'+ str(args.feature) + '-nogender.pt')
+            torch.save(c2, 'model/c2-'+ str(args.feature) + '-nogender.pt')
+            torch.save(c3, 'model/c3-'+ str(args.feature) + '-nogender.pt')
+        # invoke utils.plotting_training_curve() to plot attention images
 
-    # save attention tensors
-    torch.save(c1, 'model/c1.pt')
-    torch.save(c2, 'model/c2.pt')
-    torch.save(c3, 'model/c3.pt')
+""" Train attention-model with GeMAPS input"""
+def train_GEMAPSAttnSDM(args):
+    import gc
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.memory_summary(device=None, abbreviated=False)
+    apply_attention = True if args.attention !=0 else False
+    age_gender = True if args.age_gender !=0 else False
 
-    # plotting attention images
-    att1 = torch.squeeze(c1[0].detach().cpu()).t()
-    att2 = torch.squeeze(c2[0].detach().cpu()).t()
-    att3 = torch.squeeze(c3[0].detach().cpu()).t()
+    my_model = GeMAPS_AttnSDM(num_classes=2, apply_attention=apply_attention)
+    device_ids = [0, ]
+    loss_func = nn.CrossEntropyLoss()
+    model = nn.DataParallel(my_model, device_ids=device_ids).to(device)
+    loss_func.to(device)
+    optimizer = optim.RMSprop(model.parameters(), lr=args.learning_rate)
+    ds = utils.GeMAPSDataset(device=device, selected_task=args.task)
+    summary(my_model, (args.batch_size, 1, 46, 88))
 
-    fig = plt.figure()
-    c = plt.imshow(att1)
-    plt.colorbar(c)
-    plt.savefig('image/attmap1.png')
+    n_samples = len(ds)
+    n_test_samples = int(n_samples*.20)
+    n_train_samples = n_samples - n_test_samples
+    train_ds, test_ds = random_split(ds, [n_train_samples, n_test_samples])
 
-    fig = plt.figure()
-    c = plt.imshow(att2)
-    plt.colorbar(c)
-    plt.savefig('image/attmap2.png')
+    train_dl = DataLoader(dataset=train_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
+    validation_dl = DataLoader(dataset=test_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
+    print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
 
-    fig = plt.figure()
-    c = plt.imshow(att3)
-    plt.colorbar(c)
-    plt.savefig('image/attmap3.png')
+    training_accuracy = list()
+    training_loss = list()
+    testing_accuracy = list()
+    testing_loss = list()
+    # use classweight in the case don't use undersampling method
+    # class_weights, class_counts = ds.get_class_weights(train_ds.indices)
+    c1, c2, c3 = torch.zeros(46, 11), torch.zeros(46, 11), torch.zeros(46, 11)
+    for epoch in range(args.epoch):
+        print(f"\nEpoch {epoch+1}/{args.epoch} @ lr={optimizer.param_groups[0]['lr']} ------")
+        avg_loss = 0.0
+        avg_acc = 0.0
+        for i, (inputs, labels, ages, genders) in tqdm(enumerate(train_dl, start=0), total=len(train_dl), desc='Training step'):
+            model.train()
+            model.zero_grad()
+            optimizer.zero_grad()
+            inputs = torch.unsqueeze(inputs, dim=1) # reshape from (?, 46, 88) --> (?, 1, 46, 88)
+            inputs, labels = inputs.to(device), labels.to(device)
+            ages, genders = ages.float().to(device), genders.float().to(device)
+
+            # forward
+            pred, __, __, __ = model(inputs.float())
+
+            # backward
+            loss = loss_func(pred, labels)
+            loss.backward()
+            optimizer.step()
+            # print(f"  > step {i+1}/{len(train_dl)} loss={loss.item():.4f}")
+
+            avg_loss += loss.item()/len(train_dl)
+            model.eval()
+            pred, c1, c2, c3 = model(inputs.float())
+            # use classweight in the case unused undersampling method
+            # predict = torch.argmax(pred - class_weights.to(device), 1)
+            predict = torch.argmax(pred, 1)
+            total = labels.size(0)
+            correct = torch.eq(predict, labels).sum().double().item()
+            avg_acc += (correct/total)/len(train_dl)
+        print(f"\tavg. train loss={avg_loss:.4f} \ttrain accuracy={100*avg_acc:.2f}%")
+        #for ogging
+        training_accuracy.append(avg_acc)
+        training_loss.append(avg_loss)
+
+        model.eval()
+        with torch.no_grad():
+            test_total = 0
+            test_correct = 0
+            avg_loss = 0.0
+            for i, (inputs_test, labels_test, ages_test, genders_test) in enumerate(validation_dl, 0):
+                inputs_test = torch.unsqueeze(inputs_test, dim=1)  # reshape from (?, 46, 88) --> (?, 1, 46, 88)
+                inputs_test, labels_test = inputs_test.to(device), labels_test.to(device)
+                ages_test, genders_test = ages_test.float().to(device), genders_test.float().to(device)
+                ages_test = torch.unsqueeze(ages_test, dim=1)
+                genders_test = torch.unsqueeze(genders_test, dim=1)
+                pred_test, _, _, _ = model(inputs_test.float())
+                avg_loss += loss_func(pred_test, labels_test).item()/len(validation_dl)
+                # use classweight in the case don't use undersampling method
+                # predict = torch.argmax(pred_test - class_weights.to(device), 1)
+                predict = torch.argmax(pred_test, 1)
+                test_total += labels_test.size(0)
+                test_correct += torch.eq(predict, labels_test).sum().double().item()
+        print(f"\tavg. test loss={avg_loss:.4f} \ttest accuracy={100 * (test_correct/test_total):.2f}%")
+        #for logging
+        testing_loss.append(avg_loss)
+        testing_accuracy.append(test_correct / test_total)
+
+    print("Training is Done!")
+
+    # --- save the model ---
+    if args.attention:
+        torch.save(my_model.state_dict(), 'model/attn_model_weights_lr_'+str(args.learning_rate)+ '-'+str(args.feature) +'.pth')
+        jsonfile = open('image/train-attention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.json', 'w')
+    # no attention
+    else:
+        torch.save(my_model.state_dict(), 'model/noattn_model_weights_lr_'+str(args.learning_rate)+'.pth')
+        jsonfile = open('image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.json', 'w')
+
+    json.dump({'train_loss': training_loss,
+               'train_acc': training_accuracy,
+               'test_loss': testing_loss,
+               'test_acc': testing_accuracy}, jsonfile)
+    jsonfile.close()
+
+    # --- plotting trainig history
+    import matplotlib.pyplot as plt
+    plt.plot(training_loss, label='Training loss')
+    #plt.plot(testing_loss, label='Testing loss')
+    plt.plot(training_accuracy, label='Training Accurracy')
+    plt.plot(testing_accuracy, label='Test Accuracy')
+    plt.xlabel('epoch')
+    plt.legend()
+    if args.attention:
+        plt.savefig('image/train-attention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.png')
+    else:
+        plt.savefig('image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.png')
+
+    # ---- save tensors of attention map
+    if args.attention:
+        torch.save(c1, 'model/c1-GeMAPS.pt')
+        torch.save(c2, 'model/c2-GeMAPS.pt')
+        torch.save(c3, 'model/c3-GeMAPS.pt')
+        # invoke utils.plotting_training_curve() to plot atte
 
 """ Main function """
 if __name__=='__main__':
     custom_parser = argparse.ArgumentParser(description='Training Sleepiness Classification Model')
     custom_parser.add_argument('--task', type=int, default=0)
-    custom_parser.add_argument('--attention', type=bool, default=True)
+    custom_parser.add_argument('--attention', type=int, default=1)
     custom_parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
     custom_parser.add_argument('--epoch', type=int, default=20, help='Number of epochs')
     custom_parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
+    custom_parser.add_argument('--feature', type=str, default='hubert', help='input features')
+    custom_parser.add_argument('--age_gender', type=int, default=1, help='use age and gender')
     custom_args, _ = custom_parser.parse_known_args()
+
+    if custom_args.feature.lower() in ['hubert']:
+        train_AdaptiveAttnSDM(custom_args)
+    elif custom_args.feature.lower() in ['gemaps', 'egemaps']:
+        train_GEMAPSAttnSDM(custom_args)
+
+
 
     # train_ICASSP(custom_args)
     # train_SDM(custom_args)
     # train_AttnSDM(custom_args)
     # exit(0)
 
-    train_AdaptiveAttnSDM(custom_args)
 
     # x = torch.rand(64, 1024)
     # y = torch.rand(64, 1)

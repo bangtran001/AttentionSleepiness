@@ -224,60 +224,83 @@ if __name__=='__main__':
     elif str(custom_args.feature).lower() in ['hubert']:
         generate_hubert_embedding(custom_args)
     else:
-        '''
-        This code help to determine the index of session containing crashed wav file.
-        '''
-        df = pd.read_csv(raw_csv_corpus, usecols=[i for i in range(0, 51)])
-        df.drop(columns=df.columns[[1, 2, 47, 49]], inplace=True)  # drop redundant columns
-        col_names = ['session_id'] + ['response' + str(i) for i in range(1, 47)]  # response1,...,response46
-        df.columns = col_names
+        print('just a daft')
+        import json
+        # jsonfile = open('image/json/train-attention-hist-lr-0.0001-GeMAPS-nogender.json', 'r')
+        # train_history = json.load(jsonfile)
+        # print(train_history.keys())
+        # pd.DataFrame({'train_loss':train_history['train_loss'],
+        #               'train_acc': train_history['train_acc'],
+        #               'test_loss': train_history['test_loss'],
+        #               'test_acc': train_history['test_acc'],
+        #               }).to_csv('temp/temp.csv', index=False)
 
-        for i in range(len(df)):
-            session_id = df.iloc[i, 0]
-            if session_id == 'a4242dc0-a5cb-11ea-bdc8-6733306edde1':
-                print('index = ', i)
-                break
+        newh = pd.read_csv('temp/temp.csv')
+        jsonfile = open('image/json/train-attention-hist-lr-0.0001-GeMAPS-nogender.json', 'w')
+        json.dump({'train_loss':list(newh['train_loss']),
+                      'train_acc': list(newh['train_acc']),
+                      'test_loss': list(newh['test_loss']),
+                      'test_acc': list(newh['test_acc']),
+                      }, jsonfile)
+        jsonfile.close()
 
-        for c in range(1, len(df.columns)):
-            sample_ids = df.iloc[:, c]
-            str_pattern = "nlx-\w*-\w*-\w*-\w*-\w*"
-            sample_ids = list(
-                map(lambda x: (re.findall(str_pattern, x)[0] + '.wav') if type(x) is str else '__', sample_ids))
-            df.iloc[:, c] = sample_ids
 
-        if os.path.isdir(raw_audio_dir1 + '/' + session_id):
-            session_path = os.path.join(raw_audio_dir1, session_id)
-        elif os.path.isdir(raw_audio_dir2 + '/' + session_id):
-            session_path = os.path.join(raw_audio_dir2, session_id)
-        for j in col_names[1:]:
-            wav_file = df.loc[1745, j]
 
-            # skip unexisted files
-            if not os.path.exists(os.path.join(session_path, wav_file)):
-                print(f'\t \'{wav_file}\' was not found.')
-                continue
 
-            # skip files having size of 0
-            if os.path.getsize(os.path.join(session_path, wav_file)) == 0:
-                print(f'\t \'{wav_file}\' was has size of 0.')
-                continue
-
-            origin_wav, sr = torchaudio.load(os.path.join(session_path, wav_file))
-            if origin_wav.size(1) == 0:  # skip audio files having length = 0
-                print(f'\t \'{wav_file}\' has length = 0')
-                continue
-
-            # down sampling to 16KHz if needed
-            wav_16Khz = origin_wav
-            if sr != 16000:
-                wav_16Khz = F.resample(origin_wav, sr, 16000, resampling_method="sinc_interpolation")
-
-            # merging channels if needed
-            if origin_wav.size(0) > 1:
-                wav_16Khz = torch.mean(wav_16Khz, dim=0)
-
-            print(wav_file, origin_wav.size(), wav_16Khz.size())
-            torchaudio.save('temp.wav', torch.unsqueeze(wav_16Khz, dim=0), 16000)
+        # '''
+        # This code help to determine the index of session containing crashed wav file.
+        # '''
+        # df = pd.read_csv(raw_csv_corpus, usecols=[i for i in range(0, 51)])
+        # df.drop(columns=df.columns[[1, 2, 47, 49]], inplace=True)  # drop redundant columns
+        # col_names = ['session_id'] + ['response' + str(i) for i in range(1, 47)]  # response1,...,response46
+        # df.columns = col_names
+        #
+        # for i in range(len(df)):
+        #     session_id = df.iloc[i, 0]
+        #     if session_id == 'a4242dc0-a5cb-11ea-bdc8-6733306edde1':
+        #         print('index = ', i)
+        #         break
+        #
+        # for c in range(1, len(df.columns)):
+        #     sample_ids = df.iloc[:, c]
+        #     str_pattern = "nlx-\w*-\w*-\w*-\w*-\w*"
+        #     sample_ids = list(
+        #         map(lambda x: (re.findall(str_pattern, x)[0] + '.wav') if type(x) is str else '__', sample_ids))
+        #     df.iloc[:, c] = sample_ids
+        #
+        # if os.path.isdir(raw_audio_dir1 + '/' + session_id):
+        #     session_path = os.path.join(raw_audio_dir1, session_id)
+        # elif os.path.isdir(raw_audio_dir2 + '/' + session_id):
+        #     session_path = os.path.join(raw_audio_dir2, session_id)
+        # for j in col_names[1:]:
+        #     wav_file = df.loc[1745, j]
+        #
+        #     # skip unexisted files
+        #     if not os.path.exists(os.path.join(session_path, wav_file)):
+        #         print(f'\t \'{wav_file}\' was not found.')
+        #         continue
+        #
+        #     # skip files having size of 0
+        #     if os.path.getsize(os.path.join(session_path, wav_file)) == 0:
+        #         print(f'\t \'{wav_file}\' was has size of 0.')
+        #         continue
+        #
+        #     origin_wav, sr = torchaudio.load(os.path.join(session_path, wav_file))
+        #     if origin_wav.size(1) == 0:  # skip audio files having length = 0
+        #         print(f'\t \'{wav_file}\' has length = 0')
+        #         continue
+        #
+        #     # down sampling to 16KHz if needed
+        #     wav_16Khz = origin_wav
+        #     if sr != 16000:
+        #         wav_16Khz = F.resample(origin_wav, sr, 16000, resampling_method="sinc_interpolation")
+        #
+        #     # merging channels if needed
+        #     if origin_wav.size(0) > 1:
+        #         wav_16Khz = torch.mean(wav_16Khz, dim=0)
+        #
+        #     print(wav_file, origin_wav.size(), wav_16Khz.size())
+        #     torchaudio.save('temp.wav', torch.unsqueeze(wav_16Khz, dim=0), 16000)
 
 
 

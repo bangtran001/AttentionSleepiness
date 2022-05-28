@@ -1,7 +1,15 @@
 __pycache__/
 model/
+temp/
+image/Ge
+image/Hu
+image/HuAG
+image/json
+pdf/
 .json
 .pt
 .png
 .jpg
 .jpeg
+draft.py
+*.pptx

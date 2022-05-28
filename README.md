@@ -5,19 +5,57 @@ Applying attention mechanism in Voiceome dataset to determine sleepiness sates o
 ## Bash Command
 #### No-Attention mechaninsm
 ```bash
-python3 train.py --task=1
+python3 train.py\
+--attention=0\
+--learning_rate=0.001 --batch_size=64 --epoch=200\
+--feature=HuBERT
 ```
-Use *--task=0* to train the model with all tasks' data
+Use *--feature=GeMAPS* to train the model with GeMAPS feature 
 
 #### With Attention mechanism
 ```bash
-python3 train.py --attention=1 --learning_rate=0.001 --batch_size=32 --epoch=20
+python3 train.py\
+--attention=1\
+--learning_rate=0.001 --batch_size=64 --epoch=200\
+--feature=HuBERT\
+--age_gender=1
 ```
+Use *--age_gender=1* to add age + gender as complement features to classifier layers  
 
 
 ### CNN-Attention Model Architecture
-![](image/model-design.png)
+![](image/model-design3.jpg)
 
+### Data distribution (From Voiceome Dataset)
+*Gender Vs. Sleepiness Scale*
+
+|Gender | Non-Sleepy(1-3) | Sleepy (4-7) | Total|
+|-------|-----------------|--------------|------|
+| Female|     1,097       |      206     |1,303 |
+| Male  |     620       |      93     |713 |
+| Other  |    18       |     6     | 24 |
+| **Total**  |    **1,544**  | **284**     |**2,040**|
+
+*Age Vs. Gender*
+
+|Age |Female | Male | Others |
+|----|-------|------|--------|
+|18 | 19 | 54| 22 |  3 |
+| 20 | 29| 487 | 286 | 14 |
+| 30 | 39 | 391 | 250 | 7 |
+| 40 | 49 | 190 | 90 | 0 |
+| 50 | 59 | 109 | 33 | 0 |
+| 60 | 69 | 54  | 25 | 0 |
+| ≥ 70| 18 | 7 | 0 |
+| Total | 1,303 | 713 | 24 |
+
+## Experiment results
+Epoch = 200, lr=1e-4, batch_size=64
+#### Training Loss:
+![](image/comparing-training-loss.png)
+
+#### Test accuracy:
+![](image/comparing-test-accur.png)
 
 ## Speech tasks
 | Task   | Response columns | Speech task description | ICASSP2022's Result |
@@ -36,6 +74,3 @@ python3 train.py --attention=1 --learning_rate=0.001 --batch_size=32 --epoch=20
 | Task 12| response46, response48 | Memory recall | 80.87% |
 | **All tasks** | _all above_ | _all above_ | **_81.29%_** |
 
-## Training result
-> Epoch = 100, lr=1e^3, batch_size=64
-![epoch=100, lr=1e-3, batch_size=64](image/train-attention-hist_1e-3.png)
