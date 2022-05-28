@@ -26,7 +26,7 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 ![](image/model-design3.jpg)
 
 ### Data distribution (From Voiceome Dataset)
-<table>
+<table align="center">
 <tr><th>Gender vs. Sleepiness</th><th> Age vs. Gender </th></tr>
 <tr><td align="top">
 
