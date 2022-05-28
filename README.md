@@ -80,7 +80,7 @@ Training loss             |  Test accuracy
 
 ### Audio length distribution
 |Response | Longest (sec) | Shortest (sec) | Mean (sec) | Median | Std. Dev |
-|---|---|:---:|:---:|:---:|:---:|
+|---|:---:|:---:|:---:|:---:|:---:|
 |response1 | 10.4107 | 0.9387 | 5.5258 |5.2053 | 1.5806 |
 |response2 | 60.9280 | 31.2320 | 59.5714 |59.9040 | 1.6216 |
 |response3 | 60.8427 | 33.2800 | 59.5793 |59.9040 | 1.5586 |
