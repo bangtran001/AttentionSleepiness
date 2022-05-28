@@ -31,7 +31,7 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 <tr><td align="top">
 
 |Gender | Non-Sleepy(1-3) | Sleepy (4-7) | Total|
-|-------|-----------------|--------------|------|
+|:-------:|:-----------------:|:-------------:|:------:|
 | Female|     1,097       |      206     |1,303 |
 | Male  |     620       |      93     |713 |
 | Other  |    18       |     6     | 24 |
@@ -40,7 +40,7 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 </td><td>
 
 |Age |Female | Male | Others |
-|----|-------|------|--------|
+|:----:|:-------:|:------:|:--------:|
 |18 | 19 | 54| 22 |  3 |
 | 20 | 29| 487 | 286 | 14 |
 | 30 | 39 | 391 | 250 | 7 |
@@ -63,7 +63,7 @@ Training loss             |  Test accuracy
 
 ## Speech tasks
 | Task   | Response columns | Speech task description | ICASSP2022's Result |
-| ------ | ---------------- | ------------ | ------------------ |
+| ------ | ---------------- | ------------ |:------------------:|
 | Task 1 | response1        | Microphone test | 69.70% |
 | Task 2 | response2        | Free speech | 77.24% |
 | Task 3 | response3        | Picture description | 70.66% |
