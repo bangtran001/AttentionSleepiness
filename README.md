@@ -22,12 +22,13 @@ python3 train.py\
 ```
 Use *--age_gender=1* to add age + gender as complement features to classifier layers  
 
-
 ### CNN-Attention Model Architecture
 ![](image/model-design3.jpg)
 
 ### Data distribution (From Voiceome Dataset)
-*Gender Vs. Sleepiness Scale*
+<table>
+<tr><th>Gender vs. Sleepiness</th><th> Age vs. Gender </th></tr>
+<tr><td align="top">
 
 |Gender | Non-Sleepy(1-3) | Sleepy (4-7) | Total|
 |-------|-----------------|--------------|------|
@@ -36,7 +37,7 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 | Other  |    18       |     6     | 24 |
 | **Total**  |    **1,544**  | **284**     |**2,040**|
 
-*Age Vs. Gender*
+</td><td>
 
 |Age |Female | Male | Others |
 |----|-------|------|--------|
@@ -49,13 +50,16 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 | ≥ 70| 18 | 7 | 0 |
 | Total | 1,303 | 713 | 24 |
 
+</td></tr> </table>
+
 ## Experiment results
 Epoch = 200, lr=1e-4, batch_size=64
-#### Training Loss:
-![](image/comparing-training-loss.png)
 
-#### Test accuracy:
-![](image/comparing-test-accur.png)
+Training loss             |  Test accuracy
+:-------------------------:|:-------------------------:
+![](image/comparing-training-loss.png)  |  ![](image/comparing-test-accur.png)
+
+
 
 ## Speech tasks
 | Task   | Response columns | Speech task description | ICASSP2022's Result |
