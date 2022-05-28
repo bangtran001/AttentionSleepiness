@@ -79,54 +79,51 @@ Training loss             |  Test accuracy
 | **All tasks** | _all above_ | _all above_ | **_81.29%_** |
 
 ### Audio length distribution
-| Task   | Response | Longest (sec) | Shortest (sec) | Mean (sec) | Median | Std. Dev |
-|---|---|---|:---:|:---:|:---:|:---:|
-| Task 1 | response1 | 10.4107 | 0.9387 | 5.5258|5.2053 | 1.5806|
-| Task 2 |response2 | 60.928 | 31.232 | 59.5714 |59.904 | 1.6216|
-| Task 3 | response3 | 
-| Task 4 | response4 | 
-| Task 5 | response5 |  
-| Task 6 | response6 | 
-| Task 7 | response7 | 
-| Task 8 | response8 | 
-| Task 9 | response9 | 
-| Task 10| response10 |
-| Task 10| response11 |
-| Task 10| response12 |
-| Task 10| response13 |
-| Task 10| response14 |
-| Task 10| response15 |
-| Task 10| response16 |
-| Task 10| response17 |
-| Task 10| response18 |
-| Task 10| response19 |
-| Task 10| response20 |
-| Task 10| response21 |
-| Task 10| response22 |
-| Task 10| response23 |
-| Task 10| response24 |
-| Task 10| response25 |
-| Task 10| response26 |
-| Task 10| response27 |
-| Task 10| response28 |
-| Task 10| response29 |
-| Task 10| response30 |
-| Task 10| response31 |
-| Task 10| response32 |
-| Task 10| response33 |
-| Task 10| response34 |
-| |  |  | | 
-| Task 11| response35 |
-| Task 11| response36 |
-| Task 11| response37 |
-| Task 11| response38 |
-| Task 11| response39 |
-| Task 11| response40 |
-| Task 11| response41 |
-| Task 11| response42 |
-| Task 11| response43 |
-| Task 11| response44 |
-| |  |  | | 
-| Task 12| response46 |
-| Task 12| response48 | 
-
+|Response | Longest (sec) | Shortest (sec) | Mean (sec) | Median | Std. Dev |
+|---|---|:---:|:---:|:---:|:---:|
+|response1 | 10.4107 | 0.9387 | 5.5258 |5.2053 | 1.5806 |
+|response2 | 60.9280 | 31.2320 | 59.5714 |59.9040 | 1.6216 |
+|response3 | 60.8427 | 33.2800 | 59.5793 |59.9040 | 1.5586 |
+|response4 | 60.8427 | 9.9840 | 59.5738 |59.9040 | 1.7889 |
+|response5 | 60.7573 | 30.7200 | 59.5504 |59.9040 | 1.7045 |
+|response6 | 60.5867 | 1.4507 | 59.0024 |59.9040 | 5.0277 |
+|response7 | 30.8053 | 0.0853 | 18.6302 |17.5787 | 7.3057 |
+|response8 | 10.0693 | 5.9733 | 9.8531 |9.8987 | 0.2317 |
+|response9 | 10.2168 | 5.7173 | 9.8486 |9.8987 | 0.2529 |
+|response10 | 10.4107 | 0.8533 | 4.2560 |3.0720 | 2.7084 |
+|response11 | 9.9840 | 0.0853 | 3.2173 |2.2187 | 2.6539 |
+|response12 | 10.6667 | 0.1707 | 3.0358 |1.9627 | 2.7262 |
+|response13 | 9.9840 | 0.0853 | 3.5961 |2.6006 | 2.6130 |
+|response14 | 10.5813 | 0.1707 | 2.9992 |2.0434 | 2.6334 |
+|response15 | 10.3097 | 0.1707 | 3.1422 |2.1333 | 2.6028 |
+|response16 | 10.1547 | 0.0853 | 2.7521 |1.7920 | 2.5984 |
+|response17 | 9.9840 | 0.1707 | 2.9055 |1.9627 | 2.5845 |
+|response18 | 9.9840 | 0.0853 | 2.9825 |2.0434 | 2.6015 |
+|response19 | 10.5883 | 0.1707 | 3.1836 |2.2187 | 2.5468 |
+|response20 | 9.9840 | 0.1707 | 3.4731 |2.3893 | 2.6480 |
+|response21 | 10.1547 | 0.0853 | 2.7950 |1.7920 | 2.5863 |
+|response22 | 9.9840 | 0.1707 | 3.2859 |2.4149 | 2.4606 |
+|response23 | 10.7520 | 0.0853 | 2.7405 |1.7920 | 2.5612 |
+|response24 | 10.5813 | 0.1707 | 2.9188 |1.8773 | 2.6231 |
+|response25 | 9.9840 | 0.1707 | 3.4071 |2.3220 | 2.6276 |
+|response26 | 10.6667 | 0.0853 | 2.9781 |2.0480 | 2.5239 |
+|response27 | 10.1547 | 0.3413 | 2.8075 |1.8773 | 2.5425 |
+|response28 | 10.0693 | 0.3413 | 2.7435 |1.7647 | 2.6167 |
+|response29 | 10.2400 | 0.2560 | 2.7085 |1.8576 | 2.5228 |
+|response30 | 10.0693 | 0.1707 | 2.5730 |1.6718 | 2.5790 |
+|response31 | 10.3253 | 0.2560 | 2.9359 |1.9627 | 2.5845 |
+|response32 | 10.6667 | 0.2560 | 2.8283 |1.8576 | 2.5886 |
+|response33 | 10.0693 | 0.0929 | 2.7381 |1.7920 | 2.5616 |
+|response34 | 10.4107 | 0.3200 | 2.8480 |1.7920 | 2.6486 |
+|response35 | 33.1581 | 0.6613 | 3.4351 |2.6006 | 2.4521 |
+|response36 | 10.5813 | 0.2560 | 2.9889 |2.2187 | 2.3682 |
+|response37 | 10.8373 | 0.2560 | 2.5272 |1.7067 | 2.4200 |
+|response38 | 9.9840 | 0.1707 | 2.5972 |1.7920 | 2.4124 |
+|response39 | 10.6667 | 0.1707 | 2.5340 |1.7647 | 2.4030 |
+|response40 | 10.3253 | 0.0853 | 2.6174 |1.8576 | 2.3880 |
+|response41 | 10.5813 | 0.1707 | 2.4809 |1.7067 | 2.4208 |
+|response42 | 10.7741 | 0.0853 | 2.5249 |1.7647 | 2.3871 |
+|response43 | 10.1547 | 0.1707 | 2.4362 |1.6213 | 2.4040 |
+|response44 | 10.5813 | 0.1707 | 2.5119 |1.7647 | 2.3702 |
+|response46 | 15.7867 | 0.0853 | 6.1618 |5.3815 | 3.0466 |
+|response48 | 15.8720 | 0.0853 | 7.3616 |6.9120 | 3.0406 |
