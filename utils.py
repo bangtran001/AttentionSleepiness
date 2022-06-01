@@ -129,10 +129,10 @@ class HuBERTEmbedDataset(Dataset):
         self.dataset.loc[self.dataset['gender'] == 'Prefer not to answer', 'gender'] = 0.5
 
         # Solving imbalance problem with undersampling method
-        sleepy_ds = self.dataset[self.dataset['sss']==1]
-        tmp_ds = self.dataset[self.dataset['sss']==0]
-        awake_ds = tmp_ds.sample(n=len(sleepy_ds))
-        self.dataset = pd.concat([sleepy_ds, awake_ds], ignore_index=True)
+        # sleepy_ds = self.dataset[self.dataset['sss']==1]
+        # tmp_ds = self.dataset[self.dataset['sss']==0]
+        # awake_ds = tmp_ds.sample(n=len(sleepy_ds))
+        # self.dataset = pd.concat([sleepy_ds, awake_ds], ignore_index=True)
 
     def __len__(self):
         return len(self.dataset)
@@ -211,22 +211,38 @@ class HuBERTEmbedDataset(Dataset):
         print(f'Number of sessions: {len(self.dataset)}')
         genders, gender_count =  np.unique(self.dataset['gender'], return_counts=True)
         print(f'Genders: {genders}, {gender_count}')
-        print('Gender\tNone-Sleepy\tSleepy')
-        for i, v in enumerate(genders):
-            df = self.dataset[self.dataset['gender'] == v]
 
+        # calculate gender vs. sleepy
+        print('Gender\tNone-Sleepy\tSleepy')
+        for i, sex in enumerate(genders):
+            df = self.dataset[self.dataset['gender'] == sex]
             # gender
             sss_vals, count = np.unique(df['sss'], return_counts=True)
-            print(f'Gender: {v}')
+            print(f'Gender: {sex}')
             for j, sss in enumerate(sss_vals):
                 print(f'\tsss_val={sss} has {count[j]}')
             print(f'\ttotal= {np.sum(count)}')
 
-        for i, v in enumerate(genders):
-            df = self.dataset[self.dataset['gender'] == v]
+        print('==================')
+        # calculate age_group vs. sleepy
+        age_separator = [39, 64, 100]
+        lower_bound = 18
+        for upper_bound in age_separator:
+            df1 = self.dataset[self.dataset['age'] >= lower_bound]
+            df = df1[df1['age'] <= upper_bound]
+            sss_vals, count = np.unique(df['sss'], return_counts=True)
+            print(f'age [{lower_bound} - {upper_bound}]')
+            for j, sss in enumerate(sss_vals):
+                print(f'\tsss_val={sss} has {count[j]}')
+            lower_bound = upper_bound+1
+
+        print('==================')
+        # calculate age_group vs. gender
+        for i, sex in enumerate(genders):
+            df = self.dataset[self.dataset['gender'] == sex]
             #age
             ages, count = np.unique(df['age'], return_counts=True)
-            print(f'Gender: {v}')
+            print(f'Gender: {sex}')
             tt = 0
             TTT = 0
             for j, age in enumerate(ages):
@@ -234,13 +250,13 @@ class HuBERTEmbedDataset(Dataset):
                 tt = tt + count[j]
                 TTT += count[j]
                 if age%10 == 9:
-                    print(f'------ total={tt}')
+                    print(f'\t--- total={tt}')
                     tt = 0
 
             print(f'\ttotal of gender = {TTT}')
 
 
-#
+
 # ds = HuBERTEmbedDataset(device=torch.device('cpu'))
 # ds.statistic()
 

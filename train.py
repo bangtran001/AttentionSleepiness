@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 
+import sys
 from torch.nn import functional as F
 from tqdm import tqdm
 import json
@@ -357,7 +358,6 @@ def train_AttnSDM(args):
     plt.legend()
     plt.savefig('model/train-attention-hist.png')
 
-
 """ Train Adaptive attention-model """
 def train_AdaptiveAttnSDM(args):
     import gc
@@ -366,6 +366,17 @@ def train_AdaptiveAttnSDM(args):
     torch.cuda.memory_summary(device=None, abbreviated=False)
     apply_attention = True if args.attention !=0 else False
     age_gender = True if args.age_gender !=0 else False
+
+    if args.attention:
+        if age_gender:
+            saved_model_path = 'model/attn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '.pth'
+        else:
+            saved_model_path = 'model/attn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.pth'
+    else:
+        if age_gender:
+            saved_model_path = 'model/noattn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '.pth'
+        else:
+            saved_model_path = 'model/noattn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.pth'
 
     my_model = Adaptive_AttnSDM(num_classes=2,
                                 apply_attention=apply_attention,
@@ -385,8 +396,8 @@ def train_AdaptiveAttnSDM(args):
     n_test_samples = int(n_samples*.20)
     n_train_samples = n_samples - n_test_samples
     train_ds, test_ds = random_split(ds, [n_train_samples, n_test_samples])
-    train_dl = DataLoader(dataset=train_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
-    validation_dl = DataLoader(dataset=test_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
+    train_dl = DataLoader(dataset=train_ds, batch_size=args.batch_size, shuffle=True, drop_last=False, num_workers=16)
+    validation_dl = DataLoader(dataset=test_ds, batch_size=args.batch_size, shuffle=True, drop_last=False, num_workers=6)
     print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
 
     training_accuracy = list()
@@ -395,7 +406,7 @@ def train_AdaptiveAttnSDM(args):
     testing_loss = list()
     # use classweight in the case don't use undersampling method
     class_weights, class_counts = ds.get_class_weights(train_ds.indices)
-    c1, c2, c3 = torch.zeros(46, 32), torch.zeros(46, 32), torch.zeros(46, 32)
+    best_loss = sys.float_info.max
     for epoch in range(args.epoch):
         print(f"\nEpoch {epoch+1}/{args.epoch} @ lr={optimizer.param_groups[0]['lr']} ------")
         avg_loss = 0.0
@@ -418,11 +429,10 @@ def train_AdaptiveAttnSDM(args):
             loss.backward()
             optimizer.step()
             # print(f"  > step {i+1}/{len(train_dl)} loss={loss.item():.4f}")
-
             avg_loss += loss.item()/len(train_dl)
 
             model.eval()
-            pred, c1, c2, c3 = model(inputs.float(), ages, genders)
+            pred, _, _, _ = model(inputs.float(), ages, genders)
 
             # use classweight in the case unused undersampling method
             predict = torch.argmax(pred - class_weights.to(device), 1)
@@ -430,8 +440,15 @@ def train_AdaptiveAttnSDM(args):
             total = labels.size(0)
             correct = torch.eq(predict, labels).sum().double().item()
             avg_acc += (correct/total)/len(train_dl)
+
+        # save the best model based on training loss
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            torch.save(my_model.state_dict(), saved_model_path)
+
         print(f"\tavg. train loss={avg_loss:.4f} \ttrain accuracy={100*avg_acc:.2f}%")
-        #logging
+
+        # for logging
         training_accuracy.append(avg_acc)
         training_loss.append(avg_loss)
 
@@ -461,23 +478,18 @@ def train_AdaptiveAttnSDM(args):
         testing_accuracy.append(test_correct / test_total)
 
     print("Training is Done!")
+    return 0
 
-    # -- save the model
+    # -- save the training history
     if args.attention:
         if age_gender:
-            torch.save(my_model.state_dict(),
-                       'model/attn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '.pth')
             jsonfile = open('image/train-attention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '.json', 'w')
         else :
-            torch.save(my_model.state_dict(),
-                       'model/attn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.pth')
             jsonfile = open('image/train-attention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.json', 'w')
     else:
         if age_gender:
-            torch.save(my_model.state_dict(), 'model/noattn_model_weights_lr_'+str(args.learning_rate)+'.pth')
             jsonfile = open('image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '.json', 'w')
         else:
-            torch.save(my_model.state_dict(), 'model/noattn_model_weights_lr_'+str(args.learning_rate)+'-nogender.pth')
             jsonfile = open(
                 'image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.json', 'w')
 
@@ -507,17 +519,8 @@ def train_AdaptiveAttnSDM(args):
         if not age_gender:
             plt.savefig('image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.png')
 
-    # --- save attention tensors
-    if args.attention:
-        if age_gender:
-            torch.save(c1, 'model/c1-'+ str(args.feature) + '.pt')
-            torch.save(c2, 'model/c2-'+ str(args.feature) + '.pt')
-            torch.save(c3, 'model/c3-'+ str(args.feature) + '.pt')
-        else:
-            torch.save(c1, 'model/c1-'+ str(args.feature) + '-nogender.pt')
-            torch.save(c2, 'model/c2-'+ str(args.feature) + '-nogender.pt')
-            torch.save(c3, 'model/c3-'+ str(args.feature) + '-nogender.pt')
-        # invoke utils.plotting_training_curve() to plot attention images
+
+
 
 """ Train attention-model with GeMAPS input"""
 def train_GEMAPSAttnSDM(args):
@@ -546,6 +549,12 @@ def train_GEMAPSAttnSDM(args):
     validation_dl = DataLoader(dataset=test_ds, batch_size=args.batch_size, shuffle=True, drop_last=False)
     print(f"--------\nTraining samples:{len(train_ds)}\nValidating samples:{len(test_ds)}\n--------")
 
+    # --- save the model ---
+    if args.attention:
+        saved_model_path = 'model/attn_model_weights_lr_' + str(args.learning_rate) + '-' + str(args.feature) + '.pth'
+    else:
+        saved_model_path = 'model/noattn_model_weights_lr_' + str(args.learning_rate) + '.pth'
+
     training_accuracy = list()
     training_loss = list()
     testing_accuracy = list()
@@ -553,6 +562,7 @@ def train_GEMAPSAttnSDM(args):
     # use classweight in the case don't use undersampling method
     # class_weights, class_counts = ds.get_class_weights(train_ds.indices)
     c1, c2, c3 = torch.zeros(46, 11), torch.zeros(46, 11), torch.zeros(46, 11)
+    best_loss = sys.float_info.max
     for epoch in range(args.epoch):
         print(f"\nEpoch {epoch+1}/{args.epoch} @ lr={optimizer.param_groups[0]['lr']} ------")
         avg_loss = 0.0
@@ -584,7 +594,13 @@ def train_GEMAPSAttnSDM(args):
             correct = torch.eq(predict, labels).sum().double().item()
             avg_acc += (correct/total)/len(train_dl)
         print(f"\tavg. train loss={avg_loss:.4f} \ttrain accuracy={100*avg_acc:.2f}%")
-        #for ogging
+
+        # save the best model based on training loss
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            torch.save(my_model.state_dict(), saved_model_path)
+
+        #for logging
         training_accuracy.append(avg_acc)
         training_loss.append(avg_loss)
 
@@ -615,11 +631,9 @@ def train_GEMAPSAttnSDM(args):
 
     # --- save the model ---
     if args.attention:
-        torch.save(my_model.state_dict(), 'model/attn_model_weights_lr_'+str(args.learning_rate)+ '-'+str(args.feature) +'.pth')
         jsonfile = open('image/train-attention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.json', 'w')
     # no attention
     else:
-        torch.save(my_model.state_dict(), 'model/noattn_model_weights_lr_'+str(args.learning_rate)+'.pth')
         jsonfile = open('image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.json', 'w')
 
     json.dump({'train_loss': training_loss,
@@ -641,22 +655,18 @@ def train_GEMAPSAttnSDM(args):
     else:
         plt.savefig('image/train-noattention-hist-lr-' + str(args.learning_rate) + '-' + str(args.feature) + '-nogender.png')
 
-    # ---- save tensors of attention map
-    if args.attention:
-        torch.save(c1, 'model/c1-GeMAPS.pt')
-        torch.save(c2, 'model/c2-GeMAPS.pt')
-        torch.save(c3, 'model/c3-GeMAPS.pt')
-        # invoke utils.plotting_training_curve() to plot atte
+
+    # invoke utils.plotting_training_curve() to plot atte
 
 """ Main function """
 if __name__=='__main__':
     custom_parser = argparse.ArgumentParser(description='Training Sleepiness Classification Model')
     custom_parser.add_argument('--task', type=int, default=0)
     custom_parser.add_argument('--attention', type=int, default=1)
-    custom_parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
-    custom_parser.add_argument('--epoch', type=int, default=20, help='Number of epochs')
+    custom_parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate')
+    custom_parser.add_argument('--epoch', type=int, default=200, help='Number of epochs')
     custom_parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
-    custom_parser.add_argument('--feature', type=str, default='hubert', help='input features')
+    custom_parser.add_argument('--feature', type=str, default='HuBERT', help='input features')
     custom_parser.add_argument('--age_gender', type=int, default=1, help='use age and gender')
     custom_args, _ = custom_parser.parse_known_args()
 
@@ -666,19 +676,10 @@ if __name__=='__main__':
         train_GEMAPSAttnSDM(custom_args)
 
 
-
     # train_ICASSP(custom_args)
     # train_SDM(custom_args)
     # train_AttnSDM(custom_args)
     # exit(0)
-
-
-    # x = torch.rand(64, 1024)
-    # y = torch.rand(64, 1)
-    # z = torch.rand(64, 1)
-    #
-    # g = torch.cat((x, y, z), dim=1)
-    # print(g.size())
 
 
 

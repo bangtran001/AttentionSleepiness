@@ -226,23 +226,23 @@ if __name__=='__main__':
     else:
         print('just a daft')
         import json
-        # jsonfile = open('image/json/train-attention-hist-lr-0.0001-GeMAPS-nogender.json', 'r')
-        # train_history = json.load(jsonfile)
-        # print(train_history.keys())
-        # pd.DataFrame({'train_loss':train_history['train_loss'],
-        #               'train_acc': train_history['train_acc'],
-        #               'test_loss': train_history['test_loss'],
-        #               'test_acc': train_history['test_acc'],
-        #               }).to_csv('temp/temp.csv', index=False)
+        jsonfile = open('image/json/train-attention-hist-lr-0.0001-GeMAPS-nogender.json', 'r')
+        train_history = json.load(jsonfile)
+        print(train_history.keys())
+        pd.DataFrame({'train_loss':train_history['train_loss'],
+                      'train_acc': train_history['train_acc'],
+                      'test_loss': train_history['test_loss'],
+                      'test_acc': train_history['test_acc'],
+                      }).to_csv('temp/temp.csv', index=False)
 
-        newh = pd.read_csv('temp/temp.csv')
-        jsonfile = open('image/json/train-attention-hist-lr-0.0001-GeMAPS-nogender.json', 'w')
-        json.dump({'train_loss':list(newh['train_loss']),
-                      'train_acc': list(newh['train_acc']),
-                      'test_loss': list(newh['test_loss']),
-                      'test_acc': list(newh['test_acc']),
-                      }, jsonfile)
-        jsonfile.close()
+        # newh = pd.read_csv('temp/temp.csv')
+        # jsonfile = open('image/json/train-attention-hist-lr-0.0001-GeMAPS-nogender.json', 'w')
+        # json.dump({'train_loss':list(newh['train_loss']),
+        #               'train_acc': list(newh['train_acc']),
+        #               'test_loss': list(newh['test_loss']),
+        #               'test_acc': list(newh['test_acc']),
+        #               }, jsonfile)
+        # jsonfile.close()
 
 
 

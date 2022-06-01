@@ -53,11 +53,36 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 </td></tr> </table>
 
 ## Experiment results
-Epoch = 200, lr=1e-4, batch_size=64
+Epoch = 200, lr=$1e^-4$, batch_size=64
 
 Training loss             |  Test accuracy
 :-------------------------:|:-------------------------:
 ![](image/comparing-training-loss.png)  |  ![](image/comparing-test-accur.png)
+
+
+## Annalyzing the attention scores
+The output of Linear Attention blocks are considered as attention maps. It has size of (46x32) when model is trained with HuBERT+Age+Gender/HuBERT-only, and has size of (46x11) when the model is trained with eGEMAPS features.
+
+We ran the trained model on testing data (408 speech-sessions), and then derives the average attention maps. When showing an attention map as a heatmap, we can see the hot location where the attention score is higher than other points. To determine the which column (which corresponds to a speech response) in the heatmap has highest energy, we calculate the sum of opsitive values in each column. Eventually, the output vector (1 x 46) represent the relevant scores of 46 speech-responses.
+
+
+|Attention map| Attention map| 
+:-------------------------:|:-------------------------:
+![](image/attention-map-HuBERT-AG.png)  |  ![](image/attention-map-HuBERT.png)
+
+HuBER+Age+Gender| 3 most relevant responses | 5 most relevant responses | 10 most relevant<br>responses |
+|---|---|---|---|
+C_1|[6, 8, 7] | [42,  9,  6,  8,  7] | [ 5, 37, 44, 41, 43, 42,  9,  6,  8,  7]
+C_2|[6, 8, 7] | [42,  9,  6,  8,  7] | [ 1, 46, 44, 41, 43, 42,  9,  6,  8,  7]
+C_3|[6, 8, 7] | [9,  42,  6,  8,  7] | [20, 37, 44, 41, 43,  9, 42,  6,  8,  7]
+
+
+HuBERT-Only| 3 most relevant responses | 5 most relevant responses | 10 most relevant responses |
+|---|---|---|---|
+C_1|[3, 1, 2] | [8, 4, 3, 1, 2]| [10,  6,  5,  9,  7,  8,  4,  3,  1,  2]
+C_2|[3, 1, 2] | [7, 4, 3, 1, 2] | [10,  6,  9,  5,  8,  7,  4,  3,  1,  2]
+C_3|[8, 1, 2] | [7, 3, 8, 1, 2] | [ 5,  4, 10,  6,  9,  7,  3,  8,  1,  2]
+
 
 
 

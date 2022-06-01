@@ -81,7 +81,7 @@ def weights_init_xavierNormal(module):
                 nn.init.constant_(m.bias, val=0.)
 
 class OriginalAttentionModel(nn.Module):
-    def __init__(self, im_size, num_classes, attention=True, normalize_attn=True):
+    def __init__(self, num_classes, attention=True, normalize_attn=True):
         super(OriginalAttentionModel, self).__init__()
         self.attention = attention
         self.memory = {}
@@ -149,128 +149,130 @@ class OriginalAttentionModel(nn.Module):
 '''
 Training part
 '''
+def train_model():
+    ds = utils.HuBERTEmbedDataset(device=torch.device("cuda"), selected_task=0)
+    n_samples = len(ds)
+    n_test_samples = int(n_samples * .25)
+    n_train_samples = n_samples - n_test_samples
+    train_ds, test_ds = random_split(ds, [n_train_samples, n_test_samples])
 
-ds = utils.HuBERTEmbedDataset(device=torch.device("cuda"), selected_task=0)
-n_samples = len(ds)
-n_test_samples = int(n_samples * .25)
-n_train_samples = n_samples - n_test_samples
-train_ds, test_ds = random_split(ds, [n_train_samples, n_test_samples])
+    LEARNING_RATE = 0.001   #initial learning rate
+    BATCH_SIZE = 64
+    epochs = 200
+    device = torch.device("cuda")
+    criterion = nn.CrossEntropyLoss()
 
-LEARNING_RATE = 0.001   #initial learning rate
-BATCH_SIZE = 64
-epochs = 200
-device = torch.device("cuda")
-criterion = nn.CrossEntropyLoss()
+    from torchinfo import summary
 
-from torchinfo import summary
+    model = OriginalAttentionModel(im_size=46, num_classes=2).to(device)
+    criterion.to(device)
+    optimizer = optim.RMSprop(model.parameters(), lr=LEARNING_RATE)
+    lr_lambda = lambda epoch: 0.65**(epoch//25)
+    scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
 
-model = OriginalAttentionModel(im_size=46, num_classes=2).to(device)
-criterion.to(device)
-optimizer = optim.RMSprop(model.parameters(), lr=LEARNING_RATE)
-lr_lambda = lambda epoch: 0.5**(epoch//25)
-scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+    trainloader = DataLoader(dataset=train_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False, num_workers=16)
+    testloader = DataLoader(dataset=test_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False, num_workers=16)
 
-trainloader = DataLoader(dataset=train_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False, num_workers=16)
-testloader = DataLoader(dataset=test_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False, num_workers=16)
+    summary(model, (BATCH_SIZE, 1024, 46, 46))
 
-summary(model, (BATCH_SIZE, 1024, 46, 46))
+    step = 0
+    running_avg_accuracy = 0
+    aug = 0
 
-step = 0
-running_avg_accuracy = 0
-aug = 0
+    train_acc_hist = list()
+    train_loss_hist = list()
+    test_acc_hist = list()
+    best_train_lost = sys.float_info.max
+    for epoch in range(epochs):
+        images_disp = []
+        tqdm.write(f"---- Epoch {epoch} @ learning rate {optimizer.param_groups[0]['lr']} --- ")
 
-train_acc_hist = list()
-train_loss_hist = list()
-test_acc_hist = list()
-best_train_lost = sys.float_info.max
-for epoch in range(epochs):
-    images_disp = []
-    tqdm.write(f"---- Epoch {epoch} @ learning rate {optimizer.param_groups[0]['lr']} --- ")
+        avg_training_loos = 0
+        avg_training_acc = 0
+        for i, data in tqdm(enumerate(trainloader, 0), total=len(trainloader)):
+            model.train()
+            model.zero_grad()
+            optimizer.zero_grad()
+            inputs, labels, ages, genders = data
 
-    avg_training_loos = 0
-    avg_training_acc = 0
-    for i, data in tqdm(enumerate(trainloader, 0), total=len(trainloader)):
-        model.train()
-        model.zero_grad()
-        optimizer.zero_grad()
-        inputs, labels, ages, genders = data
+            # (?, 46, 1024)
 
-        # (?, 46, 1024)
+            ages = ages/100
+            inputs = torch.unsqueeze(inputs, dim=2)
+            inputs = inputs.repeat(1, 1, 46, 1)   # (?, 46, 46, 1024)
+            # inputs = inputs.view(-1, 46, 46, 1024)
+            inputs = torch.permute(inputs, (0, 3, 1, 2)) # (?, 1024, 46, 46)
+            inputs, labels = inputs.to(device), labels.to(device)
 
-        ages = ages/100
-        inputs = torch.unsqueeze(inputs, dim=2)
-        inputs = inputs.repeat(1, 1, 46, 1)   # (?, 46, 46, 1024)
-        # inputs = inputs.view(-1, 46, 46, 1024)
-        inputs = torch.permute(inputs, (0, 3, 1, 2)) # (?, 1024, 46, 46)
-        inputs, labels = inputs.to(device), labels.to(device)
+            # forward
+            pred, _, _, _ = model(inputs)
 
-        # forward
-        pred, _, _, _ = model(inputs)
+            # backward
+            loss = criterion(pred, labels)
+            loss.backward()
+            optimizer.step()
 
-        # backward
-        loss = criterion(pred, labels)
-        loss.backward()
-        optimizer.step()
+            avg_training_loos += loss.item()/len(trainloader)
 
-        avg_training_loos += loss.item()/len(trainloader)
+            model.eval()
+            pred, __, __, __ = model(inputs)
+            predict = torch.argmax(pred, 1)
+            total = labels.size(0)
+            correct = torch.eq(predict, labels).sum().double().item()
+            accuracy = correct / total
+            avg_training_acc += accuracy/len(trainloader)
+
+        train_loss_hist.append(avg_training_loos)
+        train_acc_hist.append(avg_training_acc)
+        tqdm.write(f"\tTrain loss: {avg_training_loos}")
+        tqdm.write(f"\tTrain Accuracy: {avg_training_acc*100:.2f}%")
+
+        # save the best model based on trainloss & trainaccuracy
+        if avg_training_loos < best_train_lost:
+            current_lr = optimizer.param_groups[0]['lr']
+            torch.save(model.state_dict(), f'model/original-attention-lr-{current_lr}.pth')
+            best_train_lost = avg_training_loos
 
         model.eval()
-        pred, __, __, __ = model(inputs)
-        predict = torch.argmax(pred, 1)
-        total = labels.size(0)
-        correct = torch.eq(predict, labels).sum().double().item()
-        accuracy = correct / total
-        avg_training_acc += accuracy/len(trainloader)
 
-    train_loss_hist.append(avg_training_loos)
-    train_acc_hist.append(avg_training_acc)
-    tqdm.write(f"\tTrain loss: {avg_training_loos}")
-    tqdm.write(f"\tTrain Accuracy: {avg_training_acc*100:.2f}%")
+        total = 0
+        correct = 0
+        with torch.no_grad():
+            # log scalars
+            for i, data in enumerate(testloader, 0):
+                x_test, labels_test, _, _= data
+                x_test, labels_test = x_test.to(device), labels_test.to(device)
+                # if i == 0:  # archive images in order to save to logs
+                    # images_disp.append(inputs[0:36, :, :, :])
 
-    # save the best model based on trainloss & trainaccuracy
-    if avg_training_loos < best_train_lost:
-        current_lr = optimizer.param_groups[0]['lr']
-        torch.save(model.state_dict(), f'model/original-attention-lr-{current_lr}.pth')
-        best_train_lost = avg_training_loos
+                x_test = torch.unsqueeze(x_test, dim=2)
+                x_test = x_test.repeat(1, 1, 46, 1)
+                #x_test = x_test.view(-1, 46, 46, 1024)
+                x_test = torch.permute(x_test, (0, 3, 1, 2))
 
-    model.eval()
+                pred_test, __, __, __ = model(x_test)
+                predict = torch.argmax(pred_test, 1)
+                total += labels_test.size(0)
+                correct += torch.eq(predict, labels_test).sum().double().item()
 
-    total = 0
-    correct = 0
-    with torch.no_grad():
-        # log scalars
-        for i, data in enumerate(testloader, 0):
-            x_test, labels_test, _, _= data
-            x_test, labels_test = x_test.to(device), labels_test.to(device)
-            # if i == 0:  # archive images in order to save to logs
-                # images_disp.append(inputs[0:36, :, :, :])
+            tqdm.write(f"\tAccuracy on test data: {100*correct/total:.2f}%")
+            test_acc_hist.append(correct/total)
 
-            x_test = torch.unsqueeze(x_test, dim=2)
-            x_test = x_test.repeat(1, 1, 46, 1)
-            #x_test = x_test.view(-1, 46, 46, 1024)
-            x_test = torch.permute(x_test, (0, 3, 1, 2))
-
-            pred_test, __, __, __ = model(x_test)
-            predict = torch.argmax(pred_test, 1)
-            total += labels_test.size(0)
-            correct += torch.eq(predict, labels_test).sum().double().item()
-
-        tqdm.write(f"\tAccuracy on test data: {100*correct/total:.2f}%")
-        test_acc_hist.append(correct/total)
-
-        # I_train = utils.make_grid(images_disp[0], nrow=6, normalize=True, scale_each=True)
-        # show(I_train)
-        # if epoch == 0:
-        # I_test = utils.make_grid(images_disp[1], nrow=6, normalize=True, scale_each=True)
-        # show(I_test)
+            # I_train = utils.make_grid(images_disp[0], nrow=6, normalize=True, scale_each=True)
+            # show(I_train)
+            # if epoch == 0:
+            # I_test = utils.make_grid(images_disp[1], nrow=6, normalize=True, scale_each=True)
+            # show(I_test)
 
 
-# plotting the training history
-import matplotlib.pyplot as plt
-plt.plot(train_acc_hist, label='Train accuracy')
-plt.plot(test_acc_hist, label='Test accurracy')
-plt.plot(train_loss_hist, label='Training loss')
-plt.xlabel('epoch')
-plt.legend()
-plt.savefig('image/train-original-attention-hist.png')
+    # plotting the training history
+    import matplotlib.pyplot as plt
+    plt.plot(train_acc_hist, label='Train accuracy')
+    plt.plot(test_acc_hist, label='Test accurracy')
+    plt.plot(train_loss_hist, label='Training loss')
+    plt.xlabel('epoch')
+    plt.legend()
+    plt.savefig('image/train-original-attention-hist.png')
 
+if __name__ == '__main__':
+    train_model()
