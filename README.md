@@ -53,7 +53,7 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 </td></tr> </table>
 
 ## Experiment results
-Epoch = 200, lr=$1e^-4$, batch_size=64
+Epoch = 200, lr=$1e^{-4}$, batch_size=64
 
 Training loss             |  Test accuracy
 :-------------------------:|:-------------------------:
@@ -70,18 +70,20 @@ We ran the trained model on testing data (408 speech-sessions), and then derives
 :-------------------------:|:-------------------------:
 ![](image/attention-map-HuBERT-AG.png)  |  ![](image/attention-map-HuBERT.png)
 
-HuBER+Age+Gender| 3 most relevant responses | 5 most relevant responses | 10 most relevant<br>responses |
-|---|---|---|---|
-C_1|[6, 8, 7] | [42,  9,  6,  8,  7] | [ 5, 37, 44, 41, 43, 42,  9,  6,  8,  7]
-C_2|[6, 8, 7] | [42,  9,  6,  8,  7] | [ 1, 46, 44, 41, 43, 42,  9,  6,  8,  7]
-C_3|[6, 8, 7] | [9,  42,  6,  8,  7] | [20, 37, 44, 41, 43,  9, 42,  6,  8,  7]
+#### HuBER + Age + Gender
 
-
-HuBERT-Only| 3 most relevant responses | 5 most relevant responses | 10 most relevant responses |
+---| 3 most relevant responses | 5 most relevant responses | 10 most relevant<br>responses |
 |---|---|---|---|
-C_1|[3, 1, 2] | [8, 4, 3, 1, 2]| [10,  6,  5,  9,  7,  8,  4,  3,  1,  2]
-C_2|[3, 1, 2] | [7, 4, 3, 1, 2] | [10,  6,  9,  5,  8,  7,  4,  3,  1,  2]
-C_3|[8, 1, 2] | [7, 3, 8, 1, 2] | [ 5,  4, 10,  6,  9,  7,  3,  8,  1,  2]
+$\mathcal{C}_1$|[6, 8, 7] | [42,  9,  6,  8,  7] | [ 5, 37, 44, 41, 43, 42,  9,  6,  8,  7]
+$\mathcal{C}_2$|[6, 8, 7] | [42,  9,  6,  8,  7] | [ 1, 46, 44, 41, 43, 42,  9,  6,  8,  7]
+$\mathcal{C}_3$|[6, 8, 7] | [9,  42,  6,  8,  7] | [20, 37, 44, 41, 43,  9, 42,  6,  8,  7]
+
+#### HuBERT-Only
+---| 3 most relevant responses | 5 most relevant responses | 10 most relevant responses |
+|---|---|---|---|
+$\mathcal{C}_1$|[3, 1, 2] | [8, 4, 3, 1, 2]| [10,  6,  5,  9,  7,  8,  4,  3,  1,  2]
+$\mathcal{C}_2$|[3, 1, 2] | [7, 4, 3, 1, 2] | [10,  6,  9,  5,  8,  7,  4,  3,  1,  2]
+$\mathcal{C}_3$|[8, 1, 2] | [7, 3, 8, 1, 2] | [ 5,  4, 10,  6,  9,  7,  3,  8,  1,  2]
 
 
 
