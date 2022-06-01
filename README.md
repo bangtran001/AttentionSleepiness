@@ -23,7 +23,7 @@ python3 train.py\
 Use *--age_gender=1* to add age + gender as complement features to classifier layers  
 
 ### CNN-Attention Model Architecture
-![](image/model-design3.jpg)
+![](image/model-design.png)
 
 ### Data distribution (Voiceome sessions)
 <table align="center">
