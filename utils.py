@@ -442,27 +442,27 @@ def plotting_comparing_curves():
     plt.plot(data[3]['test_acc'], label='HuBERT', marker='o', markevery=15)
     plt.plot(data[5]['test_acc'], label='GeMAPS', marker='o', markevery=15)
 
-    plt.xlabel('epoch')
+    plt.xlabel('Epoch', fontsize=16)
     plt.ylim([0, 1])
-    plt.legend()
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     plt.legend(fontsize=12)
 
     # plt.title(f'Avg. Train Acc={avg_train_accuracy:.2f}%; Avg. Test Acc=: {avg_test_accuracy:.2f}%')
     plt.savefig('image/comparing-test-accur.png')
+    plt.tight_layout()
+    plt.show()
 
-    print('Test accuracy (ATT + HuBERT + AG)', np.mean(data[0]['test_acc']))
-    print('Test accuracy (ATT + HuBERT)',np.mean(data[2]['test_acc']))
+    print('Test accuracy (ATT + HuBERT + AG)', np.max(data[0]['test_acc']))
+    print('Test accuracy (ATT + HuBERT)',np.max(data[2]['test_acc']))
     print('Test accuracy (ATT + GeMAPS)',np.mean(data[4]['test_acc']))
-    print('Test accuracy (HuBERT + AG)',np.mean(data[1]['test_acc']))
-    print('Test accuracy (HuBERT)',np.mean(data[3]['test_acc']))
-    print('Test accuracy (GeMAPS)',np.mean(data[5]['test_acc']))
+    print('Test accuracy (HuBERT + AG)',np.max(data[1]['test_acc']))
+    print('Test accuracy (HuBERT)',np.max(data[3]['test_acc']))
+    print('Test accuracy (GeMAPS)',np.max(data[5]['test_acc']))
 
 
 ''' ----------------------- '''
 # plotting_comparing_curves()
-
 # plotting_training_curve(
 #         in_histfile = 'image/json/train-noattention-hist-lr-0.0001-GeMAPS-nogender.json',
 #         out_figfile = 'image/train-noattention-hist-lr-0.0001-GeMAPS-nogender.png',
@@ -472,14 +472,11 @@ def plotting_comparing_curves():
 # )
 
 
-
-
-
-'''
-There are error numpy files when it generated
-    - embedding doesn't have shape [1, 1024]
-    - features doesn't have shape [N, 1024]    
-'''
+# '''
+# There are error numpy files when it generated
+#     - embedding doesn't have shape [1, 1024]
+#     - features doesn't have shape [N, 1024]
+# '''
 # for f in tqdm(os.listdir(hubert_feature_dir), desc='Deleting error numpy files'):
 #     xx = np.load(hubert_feature_dir + '/'+f)
 #     x = torch.from_numpy(xx)
@@ -488,7 +485,6 @@ There are error numpy files when it generated
 #         print(f, x.size(), ' is deleted')
 #         #os.remove(hubert_feature_dir + '/'+f)
 #
-
 # re-generating embedding from feature files
 # feature_files = os.listdir(hubert_feature_dir)
 # embedding_files = os.listdir(hubert_embedding_dir)
@@ -496,4 +492,3 @@ There are error numpy files when it generated
 #     feat = np.load(hubert_feature_dir + '/' + f)
 #     print(feat.shape)
 #     break
-

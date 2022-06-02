@@ -35,15 +35,6 @@ C_3 -->top 3:tensor([8, 1, 2]); top 5:tensor([7, 3, 8, 1, 2]); top 10:tensor([ 5
 # ===> 9, 4, 5, 42
 # ===> 10, 20, 37, 41, 43, 44, 46
 
-
-# with age+gender:
-# The model focuses on responses 6, 7, 8 (Paragraph reading, Sustained phonation, Diadochokinetic (puh-puh-puh))
-# as it has more correlation about pitch, frequencies and make correlation with age and gender feature
-#
-# without age+gender: ---> The model has no information about fundamental frequencies, pitch, etc.
-# it learns those information from responses 1, 2 ,3 (Microphone test, Free speech, picture description) where are people speech more sponteneous.
-
-
 import argparse
 import numpy as np
 import torch
@@ -112,11 +103,6 @@ def run_test(model_name, attention_map_name, data_type='HuBERT', age_gender=True
                 pred_test, c1, c2, c3 = model(x_test.float().to(device))
             else:
                 pred_test, c1, c2, c3 = model(x_test.to(device), ages, genders)
-
-            # c1: (?, 1, 46, 46)
-            # c2: (?, 1, 23, 23)
-            # c3: (?, 1, 11, 11)
-            # print(c1.size(), c2.size(), c3.size())
 
             c1_list.append(c1)
             c2_list.append(c2)
