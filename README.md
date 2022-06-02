@@ -55,12 +55,11 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 ## Experiment results
 Epoch = 200, lr=$1e^{-4}$, batch_size=64
 
-<center>
-| &nbsp; | HUBERT + A +G | HuBERT | eGeMAPS |
-|---|:---:|:---:|:---:|
+#### Accuracy on test data (max over epochs)
+&nbsp; | HUBERT + A +G | HuBERT | eGeMAPS 
+|---|:---:|:---:|:---:
 |With Attention | 82.57% | 73.14% | 50.67% |
 |W/o Attention | 64.68% | 54.20% | 50.15% |
-</center>
 
 Training loss             |  Test accuracy
 :-------------------------:|:-------------------------:
