@@ -188,7 +188,7 @@ class HuBERTEmbedDataset(Dataset):
             selected_rows = self.dataset
 
         labels_unique, counts = np.unique(selected_rows['sss'], return_counts=True)
-        class_weights = [counts[c]/np.sum(counts) for c in range(len(counts))]
+        class_weights = [1-counts[c]/np.sum(counts) for c in range(len(counts))]
 
         return torch.FloatTensor(class_weights), counts
 
@@ -459,9 +459,8 @@ def plotting_comparing_curves():
     print('Test accuracy (HuBERT + AG)',np.max(data[1]['test_acc']))
     print('Test accuracy (HuBERT)',np.max(data[3]['test_acc']))
     print('Test accuracy (GeMAPS)',np.max(data[5]['test_acc']))
-
-
 ''' ----------------------- '''
+
 # plotting_comparing_curves()
 # plotting_training_curve(
 #         in_histfile = 'image/json/train-noattention-hist-lr-0.0001-GeMAPS-nogender.json',

@@ -382,12 +382,10 @@ def train_AdaptiveAttnSDM(args):
                                 apply_attention=apply_attention,
                                 age_gender=age_gender)
     device_ids = [0, ]
-    loss_func = nn.CrossEntropyLoss()
     model = nn.DataParallel(my_model, device_ids=device_ids).to(device)
     loss_func.to(device)
     # optimizer = optim.RMSprop(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=5e-4)
     optimizer = optim.RMSprop(model.parameters(), lr=args.learning_rate)
-
     ds = utils.HuBERTEmbedDataset(device=device, selected_task=args.task)
     summary(my_model, (args.batch_size, 1, 46, 1024),
             age=torch.ones(args.batch_size, 1),
@@ -404,8 +402,13 @@ def train_AdaptiveAttnSDM(args):
     training_loss = list()
     testing_accuracy = list()
     testing_loss = list()
-    # use classweight in the case don't use undersampling method
+
+    # use classweight undersampling method
     class_weights, class_counts = ds.get_class_weights(train_ds.indices)
+    loss_func = nn.CrossEntropyLoss(weight=class_weights)
+
+
+
     best_loss = sys.float_info.max
     for epoch in range(args.epoch):
         print(f"\nEpoch {epoch+1}/{args.epoch} @ lr={optimizer.param_groups[0]['lr']} ------")
