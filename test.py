@@ -164,9 +164,9 @@ if __name__ == '__main__':
 
     # ----------- draw heatmap & bar graphs ---------------
     fig, ax = plt.subplots(2, 3, figsize=(10, 6))
-    ax[0][0].set_title(r'$\mathsf{g}^1_a$', fontsize=20)
-    ax[0][1].set_title(r'$\mathsf{g}^2_a$', fontsize=20)
-    ax[0][2].set_title(r'$\mathsf{g}^3_a$', fontsize=20)
+    ax[0][0].set_title(r'$\mathcal{C}_1$', fontsize=20)
+    ax[0][1].set_title(r'$\mathcal{C}_2$', fontsize=20)
+    ax[0][2].set_title(r'$\mathcal{C}_3$', fontsize=20)
 
     ax[1][0].set_title(r'$\Downarrow$ Total energy', fontsize=18)
     ax[1][1].set_title(r'$\Downarrow$ Total energy', fontsize=18)
@@ -185,7 +185,7 @@ if __name__ == '__main__':
 
     im_list = list()
     log_im = list()
-    col = 1   # 0 for HuBERT+Age+Gender; 1 for HuBERT-only
+    col = 0   # 0 for HuBERT+Age+Gender; 1 for HuBERT-only
     for j in range(0, 3):
         im = ax[0][j].imshow(C[col*3 + j], aspect='auto', cmap="plasma")
         im_list.append(im)
@@ -204,7 +204,6 @@ if __name__ == '__main__':
 
     #--------------- draw heatmap & log10 heatmap ---------------
     fig, ax = plt.subplots(2, 3, figsize=(10, 6))
-
     ax[0][0].set_title(r'$\mathcal{C}_1$', fontsize=20)
     ax[0][1].set_title(r'$\mathcal{C}_2$', fontsize=20)
     ax[0][2].set_title(r'$\mathcal{C}_3$', fontsize=20)
