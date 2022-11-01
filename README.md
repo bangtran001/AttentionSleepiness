@@ -1,6 +1,12 @@
 # AttentionSleepiness for ICC2023
 Project goal:
-Applying attention mechanism in Voiceome dataset to determine sleepiness sates of speaker with HuBERT embedding.
+In this project, we propose an attention-based sleepiness detection method using HuBERT embeddings and eGeMAPS features of human speech.
+The attention-based CNN model achieves accuracy of 82.57% on sleepiness detection using HuBERT embeddings plus age and gender as inputs.
+We also show that the embedded attention layers improve the detection accuracy in different cases of inputs. 
+We explore the attention weights from the attention layers and observe that the long and semantically-different responses from
+“Picture description”, “Microphone test”, and “Free speech” tasks are more relevant to sleepiness detection when the model is
+trained with HuBERT only; the short and semantically-similar responses from “Sustained phonation” and “Diadochokinetic” tasks are
+more relevant when trained with HuBERT plus age and gender.
 
 ## Bash Command
 #### No-Attention mechaninsm
