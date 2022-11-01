@@ -1,4 +1,4 @@
-# AttentionSleepiness for CHASE2022
+# AttentionSleepiness for ICC2023
 Project goal:
 Applying attention mechanism in Voiceome dataset to determine sleepiness sates of speaker with HuBERT embedding.
 
@@ -56,14 +56,15 @@ Use *--age_gender=1* to add age + gender as complement features to classifier la
 Epoch = 200, lr=$1e^{-4}$, batch_size=64
 
 #### Accuracy on test data (max over epochs)
-&nbsp; | HUBERT + A +G | HuBERT | eGeMAPS 
-|---|:---:|:---:|:---:
-|With Attention | 82.57% | 73.14% | 50.67% |
-|W/o Attention | 64.68% | 54.20% | 50.15% |
+&nbsp; | HUBERT + A +G | HuBERT | eGeMAPS | eGeMAPS + A + G 
+|---|:---:|:---:|:---:|:---:|
+|With Attention | 82.57% | 73.14% | 50.67% | 60.66% |
+|W/o Attention | 64.68% | 54.20% | 50.15% | 50.18%
 
 Training loss             |  Test accuracy
-:-------------------------:|:-------------------------:
-![](image/comparing-training-loss.png)  |  ![](image/comparing-test-accur.png)
+:---:|:---:
+![](image/comparing-train-loss-icc2023.png)  |  ![](image/comparing-test-accur-icc2023.png)
+![](image/comparing-train-loss-icc2023-egemaps.png)  |  ![](image/comparing-test-accur-icc2023-egemaps.png)
 
 
 
@@ -111,6 +112,24 @@ $\mathcal{C}_3$|[8, 1, 2] | [7, 3, 8, 1, 2] | [ 5,  4, 10,  6,  9,  7,  3,  8,  
 | Task 11| response35,..., response44| Non-word pronuciation | 78.66% |
 | Task 12| response46, response48 | Memory recall | 80.87% |
 | **All tasks** | _all above_ | _all above_ | **_81.29%_** |
+
+
+## Number of spoken words per Task, Gender, and Age.
+| Speech Task | Responses |       Overall ||                              Gender        ||||||                        Age                  ||||||
+|^^           |^^         | Length | Words |      Male    ||     Female    ||     Other     ||       18-39   ||      40-64    ||    $\ge$ 65   || 
+|^^           |^^         | ^^     |^^     | Length | Words| Length | Words | Length | Words | Length | Words | Length | Words | Length | Words |  
+|-------------|:---------:|:-------|:-----:|:------:|:----:|:------:|:-----:|:------:|:-----:|:------:|:-----:|:------:|:-----:|:------:|:-----:|
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+
 
 ### Audio length distribution
 |Response | Longest (sec) | Shortest (sec) | Mean (sec) | Median | Std. Dev | Total length |
