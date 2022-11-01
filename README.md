@@ -319,8 +319,8 @@ $\mathcal{C}_3$|[8, 1, 2] | [7, 3, 8, 1, 2] | [ 5,  4, 10,  6,  9,  7,  3,  8,  
 </tr>
 
 <tr align="center">
-    <td>$T_{10}}$ Confrontational naming</td>
-    <td>$Resp._{10}\dots Resp._{34}}$</td>
+    <td>$T_{10}$ Confrontational naming</td>
+    <td>$Resp._{10}\dots Resp._{34}$</td>
     <td>75.9</td>
     <td>36</td>
     <td>80.5</td>
