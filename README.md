@@ -114,21 +114,271 @@ $\mathcal{C}_3$|[8, 1, 2] | [7, 3, 8, 1, 2] | [ 5,  4, 10,  6,  9,  7,  3,  8,  
 | **All tasks** | _all above_ | _all above_ | **_81.29%_** |
 
 
-## Number of spoken words per Task, Gender, and Age.
-| Speech Task | Responses |       Overall ||                              Gender        ||||||                        Age                  ||||||
-|^^           |^^         | Length | Words |      Male    ||     Female    ||     Other     ||       18-39   ||      40-64    ||    $\ge$ 65   || 
-|^^           |^^         | ^^     |^^     | Length | Words| Length | Words | Length | Words | Length | Words | Length | Words | Length | Words |  
-|-------------|:---------:|:-------|:-----:|:------:|:----:|:------:|:-----:|:------:|:-----:|:------:|:-----:|:------:|:-----:|:------:|:-----:|
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
-| Task1       | 1         | 5.5    |9      |5.6     | 9    |5.5     | 9     | 5.0    | 9     | 5.4    | 9     | 5.9    | 9     | 6.5    |   9   |
+## Number of spoken words per Task, Gender, 
+<table>
+<tr align="center">
+    <td rowspan="3">Speech Task</td>
+    <td rowspan="3">Responses</td>
+    <td rowspan="2" colspan="2">Overall</td>
+    <td colspan="6">Gender</td>
+    <td colspan="6">Age</td>
+</tr>
+<tr align="center">
+    <td colspan="2">Male</td>
+    <td colspan="2">Female</td>
+    <td colspan="2">Other</td>
+    <td colspan="2">18-39</td>
+    <td colspan="2">40-64</td>
+    <td colspan="2">>=65</td>
+</tr>
+<tr align="center">
+    <td>Length</td>
+    <td>Words</td>
+    <td>Length</td>
+    <td>Words</td>
+    <td>Length</td>
+    <td>Words</td>
+    <td>Length</td>
+    <td>Words</td>
+    <td>Length</td>
+    <td>Words</td>
+    <td>Length</td>
+    <td>Words</td>
+    <td>Length</td>
+    <td>Words</td>
+</tr>
+<tr align="center">
+    <td>$T_1$ Microphone test</td>
+    <td>$Resp._1$</td>
+    <td>5.5</td>
+    <td>9</td>
+    <td>5.6</td>
+    <td>9</td>
+    <td>5.5</td>
+    <td>9</td>
+    <td>5.0</td>
+    <td>9</td>
+    <td>5.4</td>
+    <td>9</td>
+    <td>5.9</td>
+    <td>9</td>
+    <td>6.5</td>
+    <td>9</td>
+</tr>
+
+<tr align="center">
+    <td>$T_2$ Free speech test</td>
+    <td>$Resp._2$</td>
+    <td>56.9</td>
+    <td>80</td>
+    <td>59.4</td>
+    <td>83</td>
+    <td>59.7</td>
+    <td>79</td>
+    <td>59.6</td>
+    <td>88</td>
+    <td>59.6</td>
+    <td>82</td>
+    <td>59.4</td>
+    <td>75</td>
+    <td>59.5</td>
+    <td>79</td>
+</tr>
+
+<tr align="center">
+    <td>$T_3$ Picture description</td>
+    <td>$Resp._3$</td>
+    <td>59.6</td>
+    <td>113</td>
+    <td>59.4</td>
+    <td>109</td>
+    <td>59.7</td>
+    <td>115</td>
+    <td>59.7</td>
+    <td>121</td>
+    <td>59.6</td>
+    <td>114</td>
+    <td>59.4</td>
+    <td>111</td>
+    <td>59.6</td>
+    <td>114</td>
+</tr>
+
+<tr align="center">
+    <td>$T_4$ Category naming </td>
+    <td>$Resp._4$</td>
+    <td>59.6</td>
+    <td>33</td>
+    <td>59.4</td>
+    <td>32</td>
+    <td>59.6</td>
+    <td>33</td>
+    <td>59.6</td>
+    <td>35</td>
+    <td>59.6</td>
+    <td>33</td>
+    <td>59.5</td>
+    <td>33</td>
+    <td>59.8</td>
+    <td>35</td>
+</tr>
+
+<tr align="center">
+    <td>$T_5$ Phonemic fluency</td>
+    <td>$Resp._5$</td>
+    <td>59.6</td>
+    <td>22</td>
+    <td>59.4</td>
+    <td>21</td>
+    <td>59.6</td>
+    <td>22</td>
+    <td>59.6</td>
+    <td>23</td>
+    <td>59.6</td>
+    <td>22</td>
+    <td>59.4</td>
+    <td>22</td>
+    <td>59.7</td>
+    <td>23</td>
+</tr>
+
+<tr align="center">
+    <td>$T_6$ Paragraph reading</td>
+    <td>$Resp._6$</td>
+    <td>59</td>
+    <td>156</td>
+    <td>58.8</td>
+    <td>155</td>
+    <td>59.1</td>
+    <td>157</td>
+    <td>59.7</td>
+    <td>165</td>
+    <td>58.9</td>
+    <td>158</td>
+    <td>59.2</td>
+    <td>155</td>
+    <td>58.9</td>
+    <td>140</td>
+</tr>
+<tr align="center">
+    <td>$T_7$ Sustained phonation</td>
+    <td>$Resp._7$</td>
+    <td>18.6</td>
+    <td>3</td>
+    <td>20.2</td>
+    <td>4</td>
+    <td>17.8</td>
+    <td>3</td>
+    <td>17.8</td>
+    <td>3</td>
+    <td>18.9</td>
+    <td>3</td>
+    <td>18.1</td>
+    <td>3</td>
+    <td>16.8</td>
+    <td>3</td>
+</tr>
+
+
+<tr align="center">
+    <td>$T_8$ Diadochokinetic (puh-puh-puh)</td>
+    <td>$Resp._8$</td>
+    <td>9.9</td>
+    <td>7</td>
+    <td>9.8</td>
+    <td>9</td>
+    <td>9.6</td>
+    <td>6</td>
+    <td>9.9</td>
+    <td>6</td>
+    <td>9.9</td>
+    <td>7</td>
+    <td>9.8</td>
+    <td>7</td>
+    <td>9.9</td>
+    <td>8</td>
+</tr>
+
+<tr align="center">
+    <td>$T_9$ Diadochokinetic (puh-tuh-kuh)</td>
+    <td>$Resp._9$</td>
+    <td>9.8</td>
+    <td>9</td>
+    <td>9.8</td>
+    <td>10</td>
+    <td>9.9</td>
+    <td>9</td>
+    <td>9.9</td>
+    <td>10</td>
+    <td>9.9</td>
+    <td>9</td>
+    <td>9.8</td>
+    <td>9</td>
+    <td>9.9</td>
+    <td>9</td>
+</tr>
+
+<tr align="center">
+    <td>$T_{10}}$ Confrontational naming</td>
+    <td>$Resp._{10}\dots Resp._{34}}$</td>
+    <td>75.9</td>
+    <td>36</td>
+    <td>80.5</td>
+    <td>36</td>
+    <td>73.3</td>
+    <td>36</td>
+    <td>76.9</td>
+    <td>44</td>
+    <td>76</td>
+    <td>36</td>
+    <td>76.1</td>
+    <td>35</td>
+    <td>70.5</td>
+    <td>37</td>
+</tr>
+
+<tr align="center">
+    <td>$T_{11}$ Non-word pronunciation</td>
+    <td>$Resp._{35}\dots Resp._{44}$</td>
+    <td>26.7</td>
+    <td>10</td>
+    <td>28.2</td>
+    <td>10</td>
+    <td>25.9</td>
+    <td>10</td>
+    <td>22.1</td>
+    <td>10</td>
+    <td>26.2</td>
+    <td>10</td>
+    <td>28.2</td>
+    <td>10</td>
+    <td>26.9</td>
+    <td>10</td>
+</tr>
+
+<tr align="center">
+    <td>$T_{12}$ Memory recall</td>
+    <td>$Resp._{45}, Resps._{46}$</td>
+    <td>13.5</td>
+    <td>23</td>
+    <td>14.1</td>
+    <td>23</td>
+    <td>13.2</td>
+    <td>23</td>
+    <td>13.4</td>
+    <td>24</td>
+    <td>23.6</td>
+    <td>23</td>
+    <td>13.3</td>
+    <td>22</td>
+    <td>14.2</td>
+    <td>20</td>
+</tr>
+</table>
+
+
+
+
 
 
 ### Audio length distribution
