@@ -5,8 +5,8 @@
 #hubert_feature_dir = "../../ICASSP2022/pickle/hubert-feature"      # --> features [T, 1024]
 import json
 
-hubert_feature_dir = "/media/data_sdh/HuBERT-Feature/Nx1024"      # --> features [T, 1024]
-gemaps_feature_dir = "/media/data_sdh/GeMAPS-Feature"
+hubert_feature_dir = "/media/data_sdh/HuBERT-Feature-Voiceome/Nx1024"      # --> features [T, 1024]
+gemaps_feature_dir = "/media/data_sdh/GeMAPS-Feature-Voiceome"
 corpus_file = "csv/new2.csv"
 
 # this dictionary maps ressponseX --> task X
@@ -342,6 +342,10 @@ class GeMAPSDataset(Dataset):
 # x, label, age, gender = ds.__getitem__(10)
 # print(x.size())
 
+
+#====================================================
+
+
 """
 This function plots training curve and attention.
     - The training histories are stored json file under folder image/
@@ -352,14 +356,12 @@ def plotting_training_curve(
         out_figfile = 'image/train-attention-hist-lr-0.0001-hubert.png',
         attention=True,
         feature='hubert',
-        out_attmap = 'image/attention-map-hubert.png'
-):
+        out_attmap = 'image/attention-map-hubert.png'):
     import json
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     from matplotlib.colors import LogNorm
     from matplotlib.ticker import MultipleLocator
-
 
     jsonfile = open(in_histfile, 'r')
     train_history = json.load(jsonfile)
@@ -370,102 +372,84 @@ def plotting_training_curve(
     plt.plot(train_history['train_acc'], label='Training Accurracy', marker='v', markevery=10)
     plt.plot(train_history['test_acc'], label='Test Accuracy', marker='o', markevery=10)
     plt.xlabel('epoch')
+
     #plt.title(f'Avg. Train Acc={avg_train_accuracy:.2f}%; Avg. Test Acc=: {avg_test_accuracy:.2f}%')
     plt.legend()
     plt.savefig(out_figfile)
-
-    if not attention:
-        return
-
-    cc1 = torch.load('model/c1-'+ feature +'.pt').detach().cpu()
-    cc2 = torch.load('model/c2-'+ feature +'.pt').detach().cpu()
-    cc3 = torch.load('model/c3-'+ feature +'.pt').detach().cpu()
-    for i in range(0, cc1.size(0)):
-        c1 = torch.squeeze(cc1[i]).t()
-        c2 = torch.squeeze(cc2[i]).t()
-        c3 = torch.squeeze(cc3[i]).t()
-
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10, 3))
-        ax1.set_title('L1')
-        ax2.set_title('L2')
-        ax3.set_title('L3')
-
-        im1 = ax1.imshow(c1, aspect='auto')
-        im2 = ax2.imshow(c2, aspect='auto')
-        im3 = ax3.imshow(c3, aspect='auto')
-        divider3 = make_axes_locatable(ax3)
-        cax3 = divider3.append_axes("right", size="5%", pad=0.2)
-
-        # cbar1 = plt.colorbar(im1, cax=ax1, ticks=MultipleLocator(0.2), format="%.2f")
-        # cbar2 = plt.colorbar(im2, cax=ax2, ticks=MultipleLocator(0.2), format="%.2f")
-        cbar3 = plt.colorbar(im3, cax=cax3, format="%.05f")
-        ax1.yaxis.set_visible(False)
-        ax2.yaxis.set_visible(False)
-        ax3.yaxis.set_visible(False)
-        ax1.set_xlabel('Response index')
-        ax2.set_xlabel('Response index')
-        ax3.set_xlabel('Response index')
-        ax1.set_xticks(np.arange(0, 46, 5))
-        ax2.set_xticks(np.arange(0, 46, 5))
-        ax3.set_xticks(np.arange(0, 46, 5))
-
-        plt.title('Attention scores')
-        plt.tight_layout()
-        plt.savefig(out_attmap)
+    plt.show()
 
 def plotting_comparing_curves():
     import json
     import matplotlib.pyplot as plt
     historical_files = list()
 
-    #HuBERT + Age + Gender
-    historical_files.append('image/json/train-attention-hist-lr-0.0001-HuBERT.json')
-    historical_files.append('image/json/train-noattention-hist-lr-0.0001-HuBERT.json')
-
     # HuBERT only
-    historical_files.append('image/json/train-attention-hist-lr-0.0001-HuBERT-nogender.json')
-    historical_files.append('image/json/train-noattention-hist-lr-0.0001-HuBERT-nogender.json')
+    historical_files.append('image/json_old/train-attention-hist-lr-0.0001-HuBERT-nogender.json')
+    historical_files.append('image/json_old/train-noattention-hist-lr-0.0001-HuBERT-nogender.json')
+
+    #HuBERT + Age + Gender
+    historical_files.append('image/json_old/train-attention-hist-lr-0.0001-HuBERT.json')
+    historical_files.append('image/json_old/train-noattention-hist-lr-0.0001-HuBERT.json')
 
     # GeMAPS only
-    historical_files.append('image/json/train-attention-hist-lr-0.0001-GeMAPS-nogender.json')
-    historical_files.append('image/json/train-noattention-hist-lr-0.0001-GeMAPS-nogender.json')
+    historical_files.append('image/json_old/train-attention-hist-lr-0.0001-GeMAPS-nogender.json')
+    historical_files.append('image/json_old/train-noattention-hist-lr-0.0001-GeMAPS-nogender.json')
+
+    # GeMAPS + Age + Gender
+    historical_files.append('image/json/train-attention-hist-lr-0.0001-GeMAPS.json')
+    historical_files.append('image/json/train-noattention-hist-lr-0.0001-GeMAPS.json')
+
 
     data = list()
-    for i, fn in enumerate(historical_files):
+    for _, fn in enumerate(historical_files):
+        print(fn)
         data.append(json.load(open(fn, 'r')))
 
-    plt.plot(data[0]['test_acc'], label='ATT + HuBERT + AG', marker='s', markevery=10)
-    plt.plot(data[2]['test_acc'], label='ATT + HuE', marker='s', markevery=10)
-    plt.plot(data[4]['test_acc'], label='ATT + GeMAPS', marker='s', markevery=10)
+    plt.subplots(1, 1, figsize=(8, 7))
 
-    plt.plot(data[1]['test_acc'], label='HuBERT + AG', marker='o', markevery=15)
-    plt.plot(data[3]['test_acc'], label='HuBERT', marker='o', markevery=15)
-    plt.plot(data[5]['test_acc'], label='GeMAPS', marker='o', markevery=15)
+    plt.plot(data[0]['test_acc'], label='ATT+HuBERT', marker='s', markevery=10, linewidth=2.5)
+    plt.plot(data[1]['test_acc'], label='HuBERT Only', marker='o', markevery=10,linewidth=2.5)
 
-    plt.xlabel('Epoch', fontsize=16)
+    plt.plot(data[2]['test_acc'], label='ATT+HuBERT+A+G', marker='s', markevery=10,linewidth=2.5)
+    plt.plot(data[3]['test_acc'], label='HuBERT+A+G', marker='s', markevery=10,linewidth=2.5)
+
+    # plt.plot(data[4]['test_acc'], label='ATT+eGeMAPS', marker='s', markevery=10,linewidth=2.5)
+    # plt.plot(data[5]['test_acc'], label='eGeMAPS Only', marker='s', markevery=10, linewidth=2.5)
+    #
+    # plt.plot(data[6]['test_acc'], label='ATT+eGeMAPS+A+G', marker='s', markevery=10,linewidth=2.5)
+    # plt.plot(data[7]['test_acc'], label='eGeMAPS+A+G', marker='o', markevery=10,linewidth=2.5)
+
+    plt.xlabel('Epoch', fontsize=28)
+    plt.ylabel('Accuracy (%)', fontsize=28)
     plt.ylim([0, 1])
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.legend(fontsize=12)
+    plt.xlim([1, 200])
+    plt.xticks(fontsize=26)
+    plt.yticks(fontsize=26)
+    # plt.legend(fontsize=24, loc='upper right')
 
-    # plt.title(f'Avg. Train Acc={avg_train_accuracy:.2f}%; Avg. Test Acc=: {avg_test_accuracy:.2f}%')
-    plt.savefig('image/comparing-test-accur.png')
+    plt.title('Testing accuracy', fontsize=30)
+    plt.savefig('image/comparing-test-accur-icc2023.png')
     plt.tight_layout()
     plt.show()
 
-    print('Test accuracy (ATT + HuBERT + AG)', np.max(data[0]['test_acc']))
-    print('Test accuracy (ATT + HuBERT)',np.max(data[2]['test_acc']))
-    print('Test accuracy (ATT + GeMAPS)',np.mean(data[4]['test_acc']))
-    print('Test accuracy (HuBERT + AG)',np.max(data[1]['test_acc']))
-    print('Test accuracy (HuBERT)',np.max(data[3]['test_acc']))
-    print('Test accuracy (GeMAPS)',np.max(data[5]['test_acc']))
+    print('Test accuracy (ATT+HuBERT)', np.max(data[0]['test_acc']))
+    print('Test accuracy (HuBERT)', np.max(data[1]['test_acc']))
+    print('Test accuracy (ATT+HuBERT+A+G)', np.max(data[2]['test_acc']))
+    print('Test accuracy (HuBERT+A+G)', np.mean(data[3]['test_acc']))
+
+    print('Test accuracy (ATT+eGeMAPS)', np.mean(data[4]['test_acc']))
+    print('Test accuracy (eGeMAPS)', np.max(data[5]['test_acc']))
+    # print('Test accuracy (Att. + GeMAPS + A + G)', np.mmean(data[6]['test_acc']))
+    # print('Test accuracy (GeMAPS + A + G)', np.mean(data[7]['test_acc']))
+
 ''' ----------------------- '''
 
-# plotting_comparing_curves()
+plotting_comparing_curves()
+
 # plotting_training_curve(
 #         in_histfile = 'image/json/train-noattention-hist-lr-0.0001-GeMAPS-nogender.json',
 #         out_figfile = 'image/train-noattention-hist-lr-0.0001-GeMAPS-nogender.png',
-#         attention=False,
+#         attention=True,
 #         feature='GeMAPS',
 #         out_attmap = 'image/attention-map-GeMAPS.png'
 # )
